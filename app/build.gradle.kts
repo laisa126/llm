@@ -78,6 +78,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    // Required for Theme.MaterialComponents in themes.xml
+    implementation("com.google.android.material:material:1.12.0")
 
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
