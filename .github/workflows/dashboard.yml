@@ -1,15 +1,18 @@
 name: Deploy Dashboard to Vercel
 
+# DISABLED — only runs when manually triggered
+# Enable this when you're ready to deploy the dashboard
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'localllm-dashboard/**'
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm'
+        required: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'deploy'
     defaults:
       run:
         working-directory: ./localllm-dashboard
@@ -21,10 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # No cache here — package-lock.json may not exist yet
 
       - name: Install dependencies
-        run: npm install  # This generates package-lock.json
+        run: npm install
 
       - name: Build
         run: npm run build
