@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import com.laiserdev.localllm.data.model.TerminalLine
 import com.laiserdev.localllm.ui.MainViewModel
 import com.laiserdev.localllm.ui.theme.*
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
 
 @Composable
 fun TerminalScreen(vm: MainViewModel) {
@@ -238,7 +240,3 @@ fun PackageInstallerPanel(onInstall: (String, List<String>) -> Unit) {
         }
     }
 }
-
-// Imports needed
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.graphics.SolidColor

@@ -21,6 +21,8 @@ import com.laiserdev.localllm.data.model.ProjectFile
 import com.laiserdev.localllm.ui.MainViewModel
 import com.laiserdev.localllm.ui.theme.*
 import java.io.File
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.Dp
 
 @Composable
 fun EditorScreen(vm: MainViewModel) {
@@ -401,6 +403,3 @@ private fun Modifier.border(start: Dp = 0.dp, end: Dp = 0.dp, bottom: Dp = 0.dp,
             }
         else Modifier
     )
-
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.unit.Dp

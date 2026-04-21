@@ -55,7 +55,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
 
@@ -65,9 +64,6 @@ android {
 }
 
 dependencies {
-    // Core library desugaring (required by sora-editor language-textmate)
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
@@ -116,9 +112,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
-    // Code editor (syntax highlighting)
-    implementation("io.github.Rosemoe.sora-editor:editor:0.23.4")
-    implementation("io.github.Rosemoe.sora-editor:language-textmate:0.23.4")
 
     // Image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
@@ -129,7 +122,4 @@ dependencies {
     // Zip
     implementation("net.lingala.zip4j:zip4j:2.11.5")
 
-    // Markdown renderer (for AI output)
-    implementation("com.halilibo.compose-richtext:richtext-commonmark:0.20.0")
-    implementation("com.halilibo.compose-richtext:richtext-ui-material3:0.20.0")
 }
