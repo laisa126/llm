@@ -21,11 +21,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: localllm-dashboard/package-lock.json
+          # No cache here — package-lock.json may not exist yet
 
       - name: Install dependencies
-        run: npm install
+        run: npm install  # This generates package-lock.json
 
       - name: Build
         run: npm run build
