@@ -145,11 +145,29 @@ jobs:
           echo "KEY_PASSWORD=debugpass"     >> $GITHUB_ENV
           echo "✅ Debug keystore generated"
 
-      # ── 9. Make gradlew executable ────────────────────────────────────────────
+      # ── 9. Download real gradle-wrapper.jar ──────────────────────────────────
+      # The committed JAR is a stub — download the real one from Gradle's CDN
+      - name: 📥 Download gradle-wrapper.jar
+        run: |
+          mkdir -p gradle/wrapper
+          curl -fsSL \
+            "https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+          # Verify it's a real JAR (starts with PK magic bytes)
+          if ! file gradle/wrapper/gradle-wrapper.jar | grep -q "Zip\|Java"; then
+            echo "Primary download failed, trying mirror..."
+            curl -fsSL \
+              "https://github.com/gradle/gradle/raw/v8.7.0/gradle/wrapper/gradle-wrapper.jar" \
+              -o gradle/wrapper/gradle-wrapper.jar
+          fi
+          echo "JAR size: $(du -sh gradle/wrapper/gradle-wrapper.jar | cut -f1)"
+          file gradle/wrapper/gradle-wrapper.jar
+
+      # ── 10. Make gradlew executable ───────────────────────────────────────────
       - name: 🔧 Make gradlew executable
         run: chmod +x gradlew
 
-      # ── 10. Lint (non-blocking) ───────────────────────────────────────────────
+      # ── 11. Lint (non-blocking) ───────────────────────────────────────────────
       - name: 🔍 Run lint
         run: ./gradlew lintDebug --stacktrace --no-daemon
         continue-on-error: true

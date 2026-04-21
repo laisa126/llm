@@ -33,3 +33,4 @@ dist/
 # Misc
 *.log
 *.tmp
+gradle/wrapper/gradle-wrapper.jar

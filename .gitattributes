@@ -1,0 +1,5 @@
+# Treat jar as binary so git doesn't corrupt it
+gradle/wrapper/gradle-wrapper.jar binary
+*.jar binary
+*.apk binary
+*.jks binary
