@@ -1,0 +1,7 @@
+-keep class com.laiserdev.localllm.** { *; }
+-keep class com.google.mediapipe.** { *; }
+-keepattributes *Annotation*
+-dontwarn org.slf4j.**
+-dontwarn io.netty.**
+-keep class io.ktor.** { *; }
+-keep class kotlinx.serialization.** { *; }

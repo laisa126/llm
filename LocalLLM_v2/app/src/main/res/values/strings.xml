@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LocalLLM</string>
+    <string name="channel_server_name">API Server</string>
+    <string name="channel_server_desc">Local LLM API server running on port 8080</string>
+    <string name="channel_download_name">Model Downloads</string>
+    <string name="channel_download_desc">Downloading AI model files</string>
+</resources>
