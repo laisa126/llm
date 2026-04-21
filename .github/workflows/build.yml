@@ -108,19 +108,27 @@ jobs:
           echo "RELEASE_VERSION=${{ steps.version.outputs.version_name }}" >> $GITHUB_ENV
           echo "BUILD_NUMBER=${{ steps.version.outputs.version_code }}"    >> $GITHUB_ENV
 
-      # ── 8. Keystore setup (release only) ─────────────────────────────────────
+      # ── 8. Keystore setup ────────────────────────────────────────────────────
       - name: 🔑 Setup release keystore
-        if: steps.version.outputs.is_release == 'true' && secrets.KEYSTORE_BASE64 != ''
+        if: steps.version.outputs.is_release == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
-          echo "KEYSTORE_PATH=release.jks"                     >> $GITHUB_ENV
-          echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-          echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}"                 >> $GITHUB_ENV
-          echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}"           >> $GITHUB_ENV
-          echo "✅ Keystore decoded and ready"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > app/release.jks
+            echo "KEYSTORE_PATH=release.jks"                       >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}"                 >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}"           >> $GITHUB_ENV
+            echo "USE_DEBUG_KEYSTORE=false"                           >> $GITHUB_ENV
+            echo "✅ Release keystore decoded"
+          else
+            echo "USE_DEBUG_KEYSTORE=true" >> $GITHUB_ENV
+            echo "⚠️ No KEYSTORE_BASE64 secret — will use debug keystore"
+          fi
 
-      - name: 🔑 Generate debug keystore (fallback when no release keystore)
-        if: steps.version.outputs.is_release != 'true' || secrets.KEYSTORE_BASE64 == ''
+      - name: 🔑 Generate debug keystore (fallback)
+        if: steps.version.outputs.is_release != 'true'
         run: |
           keytool -genkey -v \
             -keystore app/debug.jks \
