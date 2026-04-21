@@ -1,0 +1,229 @@
+package com.laiserdev.localllm.ui.screens.models
+
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.laiserdev.localllm.data.model.LLMModel
+import com.laiserdev.localllm.data.model.ModelStatus
+import com.laiserdev.localllm.ui.MainViewModel
+import com.laiserdev.localllm.ui.theme.*
+
+@Composable
+fun ModelsScreen(vm: MainViewModel) {
+    val models by vm.models.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val loadingState by vm.modelLoadingState.collectAsState()
+
+    Column(Modifier.fillMaxSize().background(BgDeep)) {
+        // Header
+        Column(Modifier.fillMaxWidth().background(BgSurface).padding(16.dp)) {
+            Text("AI Models", style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary, fontWeight = FontWeight.Bold)
+            Text("Download and load models to use locally",
+                color = TextSecond, fontSize = 13.sp)
+        }
+        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+
+        // Loading indicator
+        if (loadingState != null) {
+            Row(
+                Modifier.fillMaxWidth().background(Color(0xFF1A2A1A)).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(Modifier.size(16.dp), color = AccentGreen, strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(loadingState!!, color = AccentGreen, fontSize = 13.sp)
+            }
+        }
+
+        LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(models) { model ->
+                ModelCard(
+                    model = model,
+                    isActive = model.id == settings.activeModelId,
+                    isDownloaded = vm.isModelDownloaded(model),
+                    onDownload = { vm.downloadModel(model) },
+                    onLoad = { vm.loadModel(model) }
+                )
+            }
+
+            item {
+                HardwareInfoCard()
+            }
+        }
+    }
+}
+
+@Composable
+fun ModelCard(
+    model: LLMModel, isActive: Boolean, isDownloaded: Boolean,
+    onDownload: () -> Unit, onLoad: () -> Unit
+) {
+    val borderColor = when {
+        model.status == ModelStatus.LOADED -> AccentGreen
+        isActive -> AccentBlue
+        else -> BgBorder
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().border(BorderStroke(if (isActive || model.status == ModelStatus.LOADED) 1.dp else 0.5.dp, borderColor), RoundedCornerShape(10.dp)),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(model.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        if (model.status == ModelStatus.LOADED) {
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.background(Color(0xFF1A3A2A), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                Text("LOADED", color = AccentGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(3.dp))
+                    Text(model.description, color = TextSecond, fontSize = 12.sp, lineHeight = 16.sp)
+                }
+                Text("${model.sizeGb}GB", color = TextMuted, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Capabilities chips
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CapabilityChip("≥${model.minRamGb}GB RAM", Icons.Default.Memory)
+                if (model.supportsVision) CapabilityChip("Vision", Icons.Default.Visibility)
+                if (model.supportsCode) CapabilityChip("Code", Icons.Default.Code)
+            }
+
+            // Download progress
+            if (model.status == ModelStatus.DOWNLOADING) {
+                Spacer(Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { model.downloadProgress },
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
+                    color = AccentGreen, trackColor = BgElevated
+                )
+                Spacer(Modifier.height(4.dp))
+                Text("${(model.downloadProgress * 100).toInt()}% downloaded",
+                    color = AccentGreen, fontSize = 11.sp)
+            }
+
+            // Error
+            if (model.status == ModelStatus.ERROR && model.errorMessage != null) {
+                Spacer(Modifier.height(6.dp))
+                Text("❌ ${model.errorMessage}", color = ErrorRed, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Action button
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    model.status == ModelStatus.DOWNLOADING -> {
+                        OutlinedButton(onClick = {},
+                            border = BorderStroke(0.5.dp, BgBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextMuted)) {
+                            Text("Downloading...", fontSize = 12.sp)
+                        }
+                    }
+                    model.status == ModelStatus.LOADING -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(14.dp), color = AccentBlue, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Loading...", color = AccentBlue, fontSize = 12.sp)
+                        }
+                    }
+                    model.status == ModelStatus.LOADED -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp), tint = AccentGreen)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Active", color = AccentGreen, fontSize = 12.sp)
+                        }
+                    }
+                    isDownloaded -> {
+                        Button(onClick = onLoad,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                            Icon(Icons.Default.PlayArrow, null, Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Load Model", fontSize = 12.sp)
+                        }
+                    }
+                    else -> {
+                        Button(onClick = onDownload,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+                            Icon(Icons.Default.Download, null, Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Download", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CapabilityChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(
+        Modifier.background(BgElevated, RoundedCornerShape(4.dp)).padding(horizontal = 7.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, Modifier.size(11.dp), tint = TextMuted)
+        Spacer(Modifier.width(3.dp))
+        Text(label, color = TextMuted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+fun HardwareInfoCard() {
+    val runtime = Runtime.getRuntime()
+    val maxMem = runtime.maxMemory() / (1024 * 1024)
+    val totalMem = runtime.totalMemory() / (1024 * 1024)
+    val freeMem = runtime.freeMemory() / (1024 * 1024)
+    val usedMem = totalMem - freeMem
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
+        border = BorderStroke(0.5.dp, BgBorder)
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Device Info", color = TextSecond, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            InfoRow("JVM Max Memory", "${maxMem}MB")
+            InfoRow("JVM Used Memory", "${usedMem}MB")
+            InfoRow("Android API", android.os.Build.VERSION.SDK_INT.toString())
+            InfoRow("CPU Cores", Runtime.getRuntime().availableProcessors().toString())
+            InfoRow("CPU ABI", android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown")
+        }
+    }
+}
+
+@Composable
+fun InfoRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = TextSecond, fontSize = 12.sp)
+        Text(value, color = TextPrimary, fontSize = 12.sp)
+    }
+}

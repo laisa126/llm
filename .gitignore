@@ -1,0 +1,35 @@
+# Android
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+*.jks
+*.keystore
+*.apk
+*.aab
+
+# Kotlin
+*.class
+
+# Gradle
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
+
+# VS Code
+.vscode/
+
+# Misc
+*.log
+*.tmp

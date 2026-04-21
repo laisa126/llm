@@ -1,0 +1,461 @@
+package com.laiserdev.localllm.ui
+
+import android.app.Application
+import android.content.Intent
+import android.net.Uri
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.laiserdev.localllm.LocalLLMApp
+import com.laiserdev.localllm.data.model.*
+import com.laiserdev.localllm.data.repository.ModelDownloadService
+import com.laiserdev.localllm.server.LLMServerService
+import com.laiserdev.localllm.util.AgentEvent
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.io.File
+
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val app = application as LocalLLMApp
+
+    // ─── Chat State ───────────────────────────────────────────────────────────
+
+    private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
+
+    private val _isGenerating = MutableStateFlow(false)
+    val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
+
+    private val _selectedImageUri = MutableStateFlow<Uri?>(null)
+    val selectedImageUri: StateFlow<Uri?> = _selectedImageUri.asStateFlow()
+
+    // ─── Project State ────────────────────────────────────────────────────────
+
+    private val _projects = MutableStateFlow<List<Project>>(emptyList())
+    val projects: StateFlow<List<Project>> = _projects.asStateFlow()
+
+    private val _activeProject = MutableStateFlow<Project?>(null)
+    val activeProject: StateFlow<Project?> = _activeProject.asStateFlow()
+
+    private val _fileTree = MutableStateFlow<ProjectFile?>(null)
+    val fileTree: StateFlow<ProjectFile?> = _fileTree.asStateFlow()
+
+    private val _openFiles = MutableStateFlow<List<Pair<String, String>>>(emptyList()) // path -> content
+    val openFiles: StateFlow<List<Pair<String, String>>> = _openFiles.asStateFlow()
+
+    private val _activeFilePath = MutableStateFlow<String?>(null)
+    val activeFilePath: StateFlow<String?> = _activeFilePath.asStateFlow()
+
+    // ─── Terminal State ───────────────────────────────────────────────────────
+
+    private val _terminalLines = MutableStateFlow<List<TerminalLine>>(emptyList())
+    val terminalLines: StateFlow<List<TerminalLine>> = _terminalLines.asStateFlow()
+
+    private val _isRunningCommand = MutableStateFlow(false)
+    val isRunningCommand: StateFlow<Boolean> = _isRunningCommand.asStateFlow()
+
+    // ─── Model State ──────────────────────────────────────────────────────────
+
+    private val _models = MutableStateFlow(AVAILABLE_MODELS)
+    val models: StateFlow<List<LLMModel>> = _models.asStateFlow()
+
+    private val _modelLoadingState = MutableStateFlow<String?>(null)
+    val modelLoadingState: StateFlow<String?> = _modelLoadingState.asStateFlow()
+
+    // ─── Settings ─────────────────────────────────────────────────────────────
+
+    val settings = app.settingsManager.settings.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings()
+    )
+
+    // ─── Skills ───────────────────────────────────────────────────────────────
+
+    private val _skills = MutableStateFlow<List<Skill>>(emptyList())
+    val skills: StateFlow<List<Skill>> = _skills.asStateFlow()
+
+    // ─── Agent State ──────────────────────────────────────────────────────────
+
+    private val _agentEvents = MutableSharedFlow<AgentEvent>()
+    val agentEvents: SharedFlow<AgentEvent> = _agentEvents.asSharedFlow()
+
+    private val _isAgentRunning = MutableStateFlow(false)
+    val isAgentRunning: StateFlow<Boolean> = _isAgentRunning.asStateFlow()
+
+    // ─── Server State ─────────────────────────────────────────────────────────
+
+    private val _serverRunning = MutableStateFlow(false)
+    val serverRunning: StateFlow<Boolean> = _serverRunning.asStateFlow()
+
+    init {
+        loadProjects()
+        loadSkills()
+        observeDownloadProgress()
+    }
+
+    // ─── Chat ─────────────────────────────────────────────────────────────────
+
+    fun sendMessage(content: String, imageUri: Uri? = null) {
+        viewModelScope.launch {
+            val userMsg = ChatMessage(role = MessageRole.USER, content = content, imageUri = imageUri?.toString())
+            _messages.update { it + userMsg }
+            _selectedImageUri.value = null
+
+            val assistantMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "", isStreaming = true)
+            _messages.update { it + assistantMsg }
+            _isGenerating.value = true
+
+            val sysPrompt = settings.value.systemPrompt
+            val buffer = StringBuilder()
+            val start = System.currentTimeMillis()
+
+            app.llmRepository.generateStream(content, sysPrompt, imageUri).collect { token ->
+                buffer.append(token)
+                _messages.update { msgs ->
+                    msgs.dropLast(1) + assistantMsg.copy(content = buffer.toString(), isStreaming = true)
+                }
+            }
+
+            val tps = buffer.length.toFloat() / ((System.currentTimeMillis() - start) / 1000f)
+            _messages.update { msgs ->
+                msgs.dropLast(1) + assistantMsg.copy(
+                    content = buffer.toString(), isStreaming = false, tokensPerSecond = tps
+                )
+            }
+            _isGenerating.value = false
+        }
+    }
+
+    fun stopGeneration() { _isGenerating.value = false }
+    fun clearChat() { _messages.value = emptyList() }
+    fun setSelectedImage(uri: Uri?) { _selectedImageUri.value = uri }
+
+    // ─── Agent (tool-use) ─────────────────────────────────────────────────────
+
+    fun runAgent(prompt: String) {
+        val project = _activeProject.value ?: return
+        viewModelScope.launch {
+            _isAgentRunning.value = true
+            val agentMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "", isStreaming = true)
+            _messages.update { it + ChatMessage(role = MessageRole.USER, content = prompt) + agentMsg }
+
+            val buffer = StringBuilder()
+            app.toolEngine.agentLoop(prompt, project.path).collect { event ->
+                _agentEvents.emit(event)
+                when (event) {
+                    is AgentEvent.Token -> {
+                        buffer.append(event.text)
+                        _messages.update { msgs ->
+                            msgs.dropLast(1) + agentMsg.copy(content = buffer.toString(), isStreaming = true)
+                        }
+                    }
+                    is AgentEvent.FinalAnswer -> {
+                        _messages.update { msgs ->
+                            msgs.dropLast(1) + agentMsg.copy(content = event.text, isStreaming = false)
+                        }
+                    }
+                    is AgentEvent.ToolCalling -> {
+                        addTerminalLine("🔧 Tool: ${event.name}(${event.args.take(80)})", TerminalLine.LineType.TOOL)
+                    }
+                    is AgentEvent.ToolResult -> {
+                        addTerminalLine(if (event.isError) "❌ ${event.output}" else "✅ ${event.output.take(200)}", 
+                            if (event.isError) TerminalLine.LineType.ERROR else TerminalLine.LineType.INFO)
+                        refreshFileTree()
+                    }
+                    else -> {}
+                }
+            }
+            _isAgentRunning.value = false
+        }
+    }
+
+    // ─── Projects ─────────────────────────────────────────────────────────────
+
+    fun loadProjects() {
+        viewModelScope.launch {
+            _projects.value = app.projectRepository.listProjects()
+        }
+    }
+
+    fun openProject(project: Project) {
+        _activeProject.value = project
+        app.terminalExecutor.workingDir = File(project.path)
+        addTerminalLine("📁 Opened project: ${project.name}", TerminalLine.LineType.INFO)
+        addTerminalLine("Path: ${project.path}", TerminalLine.LineType.INFO)
+        refreshFileTree()
+    }
+
+    fun createProject(name: String) {
+        viewModelScope.launch {
+            app.projectRepository.createProject(name).onSuccess { project ->
+                loadProjects()
+                openProject(project)
+            }
+        }
+    }
+
+    fun generateProjectFromPrompt(description: String) {
+        viewModelScope.launch {
+            _isGenerating.value = true
+            val assistantMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "🚀 Generating project...", isStreaming = true)
+            _messages.update { it + ChatMessage(role = MessageRole.USER, content = description) + assistantMsg }
+
+            app.llmRepository.generateProject(description).onSuccess { jsonResponse ->
+                app.projectRepository.createFromAIJson(jsonResponse).onSuccess { project ->
+                    _messages.update { msgs ->
+                        msgs.dropLast(1) + assistantMsg.copy(
+                            content = "✅ Project **${project.name}** created with ${File(project.path).walkTopDown().filter { it.isFile }.count()} files.",
+                            isStreaming = false
+                        )
+                    }
+                    loadProjects()
+                    openProject(project)
+                }.onFailure { e ->
+                    _messages.update { msgs ->
+                        msgs.dropLast(1) + assistantMsg.copy(content = "❌ Error: ${e.message}", isStreaming = false)
+                    }
+                }
+            }.onFailure { e ->
+                _messages.update { msgs ->
+                    msgs.dropLast(1) + assistantMsg.copy(content = "❌ Error: ${e.message}", isStreaming = false)
+                }
+            }
+            _isGenerating.value = false
+        }
+    }
+
+    fun deleteProject(project: Project) {
+        viewModelScope.launch {
+            app.projectRepository.deleteProject(project.id)
+            if (_activeProject.value?.id == project.id) {
+                _activeProject.value = null; _fileTree.value = null
+            }
+            loadProjects()
+        }
+    }
+
+    fun exportProject() {
+        val project = _activeProject.value ?: return
+        viewModelScope.launch {
+            app.projectRepository.exportProjectAsZip(project.path).onSuccess { zipFile ->
+                addTerminalLine("✅ Exported: ${zipFile.absolutePath}", TerminalLine.LineType.INFO)
+            }.onFailure { addTerminalLine("❌ Export failed: ${it.message}", TerminalLine.LineType.ERROR) }
+        }
+    }
+
+    fun importProject(zipUri: Uri) {
+        viewModelScope.launch {
+            app.projectRepository.importProjectFromZip(zipUri).onSuccess { project ->
+                loadProjects(); openProject(project)
+                addTerminalLine("✅ Imported project: ${project.name}", TerminalLine.LineType.INFO)
+            }.onFailure { addTerminalLine("❌ Import failed: ${it.message}", TerminalLine.LineType.ERROR) }
+        }
+    }
+
+    // ─── Files ────────────────────────────────────────────────────────────────
+
+    fun refreshFileTree() {
+        val project = _activeProject.value ?: return
+        viewModelScope.launch {
+            _fileTree.value = app.projectRepository.getFileTree(project.path)
+        }
+    }
+
+    fun openFile(absolutePath: String) {
+        viewModelScope.launch {
+            if (_openFiles.value.any { it.first == absolutePath }) {
+                _activeFilePath.value = absolutePath; return@launch
+            }
+            app.projectRepository.readFile(absolutePath).onSuccess { content ->
+                _openFiles.update { it + (absolutePath to content) }
+                _activeFilePath.value = absolutePath
+            }
+        }
+    }
+
+    fun saveFile(absolutePath: String, content: String) {
+        viewModelScope.launch {
+            app.projectRepository.writeFile(absolutePath, content)
+            _openFiles.update { files -> files.map { if (it.first == absolutePath) absolutePath to content else it } }
+        }
+    }
+
+    fun closeFile(absolutePath: String) {
+        _openFiles.update { it.filter { f -> f.first != absolutePath } }
+        if (_activeFilePath.value == absolutePath) {
+            _activeFilePath.value = _openFiles.value.lastOrNull()?.first
+        }
+    }
+
+    fun createNewFile(relativePath: String) {
+        val project = _activeProject.value ?: return
+        viewModelScope.launch {
+            app.projectRepository.createFile(project.path, relativePath).onSuccess { abs ->
+                refreshFileTree(); openFile(abs)
+            }
+        }
+    }
+
+    fun deleteFile(absolutePath: String) {
+        viewModelScope.launch {
+            app.projectRepository.deleteFile(absolutePath)
+            closeFile(absolutePath); refreshFileTree()
+        }
+    }
+
+    // ─── Terminal ─────────────────────────────────────────────────────────────
+
+    fun runCommand(command: String) {
+        viewModelScope.launch {
+            addTerminalLine("$ $command", TerminalLine.LineType.COMMAND)
+            _isRunningCommand.value = true
+
+            // Handle builtins
+            val builtin = app.terminalExecutor.handleBuiltin(command, app.terminalExecutor.workingDir.absolutePath)
+            if (builtin != null) {
+                val (_, output) = builtin
+                if (output.isNotBlank()) addTerminalLine(output, TerminalLine.LineType.OUTPUT)
+                _isRunningCommand.value = false
+                return@launch
+            }
+
+            app.terminalExecutor.execute(command).collect { (line, isErr) ->
+                addTerminalLine(line, if (isErr) TerminalLine.LineType.ERROR else TerminalLine.LineType.OUTPUT)
+            }
+            _isRunningCommand.value = false
+            refreshFileTree()
+        }
+    }
+
+    fun runProjectAutoDetect() {
+        val project = _activeProject.value ?: return
+        val cmd = app.packageManager.detectRunCommand(project.path)
+        if (cmd != null) runCommand(cmd)
+        else addTerminalLine("⚠ Could not auto-detect run command for this project", TerminalLine.LineType.INFO)
+    }
+
+    fun installPackages(manager: String, packages: List<String>) {
+        val project = _activeProject.value ?: return
+        viewModelScope.launch {
+            addTerminalLine("📦 Installing: ${packages.joinToString(", ")} via $manager", TerminalLine.LineType.INFO)
+            _isRunningCommand.value = true
+            val result = app.packageManager.install(manager, packages, project.path)
+            addTerminalLine(result, TerminalLine.LineType.OUTPUT)
+            _isRunningCommand.value = false
+            refreshFileTree()
+        }
+    }
+
+    fun clearTerminal() { _terminalLines.value = emptyList() }
+
+    private fun addTerminalLine(text: String, type: TerminalLine.LineType) {
+        _terminalLines.update { it + TerminalLine(text, type) }
+    }
+
+    // ─── Models ───────────────────────────────────────────────────────────────
+
+    fun downloadModel(model: LLMModel) {
+        val intent = Intent(getApplication(), ModelDownloadService::class.java).apply {
+            putExtra(ModelDownloadService.EXTRA_MODEL_ID, model.id)
+            putExtra(ModelDownloadService.EXTRA_MODEL_NAME, model.name)
+            putExtra(ModelDownloadService.EXTRA_DOWNLOAD_URL, model.downloadUrl)
+            putExtra(ModelDownloadService.EXTRA_FILE_NAME, model.fileName)
+        }
+        getApplication<Application>().startForegroundService(intent)
+        updateModelStatus(model.id, ModelStatus.DOWNLOADING)
+    }
+
+    fun loadModel(model: LLMModel) {
+        viewModelScope.launch {
+            _modelLoadingState.value = "Loading ${model.name}..."
+            updateModelStatus(model.id, ModelStatus.LOADING)
+            app.llmRepository.loadModel(model.id, model.fileName).onSuccess {
+                updateModelStatus(model.id, ModelStatus.LOADED)
+                app.settingsManager.setActiveModel(model.id)
+                _modelLoadingState.value = null
+            }.onFailure { e ->
+                updateModelStatus(model.id, ModelStatus.ERROR, e.message)
+                _modelLoadingState.value = null
+            }
+        }
+    }
+
+    fun isModelDownloaded(model: LLMModel): Boolean {
+        val f = File(getApplication<Application>().filesDir, "models/${model.fileName}")
+        return f.exists()
+    }
+
+    private fun updateModelStatus(id: String, status: ModelStatus, error: String? = null) {
+        _models.update { models ->
+            models.map { if (it.id == id) it.copy(status = status, errorMessage = error) else it }
+        }
+    }
+
+    private fun observeDownloadProgress() {
+        viewModelScope.launch {
+            ModelDownloadService.downloadProgress.collect { progressMap ->
+                _models.update { models ->
+                    models.map { model ->
+                        val progress = progressMap[model.id]
+                        if (progress != null) model.copy(downloadProgress = progress) else model
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            ModelDownloadService.downloadStatus.collect { statusMap ->
+                _models.update { models ->
+                    models.map { model ->
+                        val status = statusMap[model.id]
+                        if (status == "ready") model.copy(status = ModelStatus.READY)
+                        else if (status?.startsWith("error") == true)
+                            model.copy(status = ModelStatus.ERROR, errorMessage = status.removePrefix("error:"))
+                        else model
+                    }
+                }
+            }
+        }
+    }
+
+    // ─── Skills ───────────────────────────────────────────────────────────────
+
+    fun loadSkills() {
+        viewModelScope.launch { _skills.value = app.skillsManager.getAllSkills() }
+    }
+
+    fun applySkill(skill: Skill, variables: Map<String, String>) {
+        val prompt = app.skillsManager.applyTemplate(skill, variables)
+        sendMessage(prompt)
+    }
+
+    fun saveCustomSkill(skill: Skill) {
+        viewModelScope.launch { app.skillsManager.saveSkill(skill); loadSkills() }
+    }
+
+    // ─── Server ───────────────────────────────────────────────────────────────
+
+    fun toggleServer(enable: Boolean) {
+        val ctx = getApplication<Application>()
+        if (enable) {
+            ctx.startForegroundService(Intent(ctx, LLMServerService::class.java))
+        } else {
+            ctx.stopService(Intent(ctx, LLMServerService::class.java))
+        }
+        _serverRunning.value = enable
+        viewModelScope.launch { app.settingsManager.setServerEnabled(enable) }
+    }
+
+    // ─── Settings ─────────────────────────────────────────────────────────────
+
+    fun updateSystemPrompt(prompt: String) {
+        viewModelScope.launch { app.settingsManager.setSystemPrompt(prompt) }
+    }
+    fun updateTemperature(t: Float) {
+        viewModelScope.launch { app.settingsManager.setTemperature(t) }
+    }
+    fun updateMaxTokens(n: Int) {
+        viewModelScope.launch { app.settingsManager.setMaxTokens(n) }
+    }
+    fun updateFontSize(size: Int) {
+        viewModelScope.launch { app.settingsManager.setFontSize(size) }
+    }
+}
