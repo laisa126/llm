@@ -4,14 +4,11 @@ import android.content.Context
 import android.util.Log
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 class LLMRepository(private val context: Context) {
 
@@ -40,31 +37,19 @@ class LLMRepository(private val context: Context) {
     fun isLoaded() = llmInference != null
     fun currentModel() = currentModelId
 
-    // Streaming via callbackFlow — listener set before async call
-    fun generateStream(prompt: String, systemPrompt: String = ""): Flow<String> = callbackFlow {
-        val inference = llmInference
-        if (inference == null) { close(Exception("No model loaded")); return@callbackFlow }
-        try {
-            val fullPrompt = buildPrompt(systemPrompt, prompt)
-            // Set the result listener first, then trigger async generation
-            inference.setResultListener { partialResult, done ->
-                if (!isClosedForSend) {
-                    trySend(partialResult)
-                    if (done) close()
-                }
-            }
-            inference.generateResponseAsync(fullPrompt)
-        } catch (e: Exception) { close(e) }
-        awaitClose { /* listener auto-clears on next call */ }
-    }
+    // Streaming: run blocking generateResponse on IO thread, emit full result as single token
+    // MediaPipe 0.10.14 doesn't expose token streaming - full response comes at once
+    fun generateStream(prompt: String, systemPrompt: String = ""): Flow<String> = flow {
+        val inference = llmInference ?: throw Exception("No model loaded")
+        val result = inference.generateResponse(buildPrompt(systemPrompt, prompt))
+        emit(result)
+    }.flowOn(Dispatchers.IO)
 
-    // One-shot blocking generation
     suspend fun generate(prompt: String, systemPrompt: String = "", maxTokens: Int = 1024): Result<String> =
         withContext(Dispatchers.IO) {
             val inference = llmInference ?: return@withContext Result.failure(Exception("No model loaded"))
             try {
-                val result = inference.generateResponse(buildPrompt(systemPrompt, prompt))
-                Result.success(result)
+                Result.success(inference.generateResponse(buildPrompt(systemPrompt, prompt)))
             } catch (e: Exception) { Result.failure(e) }
         }
 
@@ -77,7 +62,7 @@ class LLMRepository(private val context: Context) {
 
     suspend fun generateProject(description: String): Result<String> =
         generate(description,
-            "You are an expert architect. Respond ONLY with JSON: {\"projectName\":\"name\",\"files\":[{\"path\":\"path\",\"content\":\"content\"}]}",
+            "Respond ONLY with JSON: {\"projectName\":\"name\",\"files\":[{\"path\":\"path\",\"content\":\"content\"}]}",
             8192)
 
     private fun buildPrompt(system: String, user: String) = buildString {

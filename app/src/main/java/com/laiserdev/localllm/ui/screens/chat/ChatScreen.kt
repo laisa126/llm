@@ -150,7 +150,8 @@ fun ChatScreen(vm: MainViewModel) {
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
                     cursorColor = AccentGreen,
-                    containerColor = BgElevated
+                    focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated
                 ),
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 5,
@@ -370,7 +371,8 @@ fun SkillVariablesDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                            cursorColor = AccentGreen, containerColor = BgElevated,
+                            cursorColor = AccentGreen, focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated,
                             focusedLabelColor = AccentGreen
                         ),
                         modifier = Modifier.fillMaxWidth(), maxLines = 4

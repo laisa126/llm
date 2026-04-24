@@ -224,7 +224,8 @@ fun PackageInstallerPanel(onInstall: (String, List<String>) -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentBlue, unfocusedBorderColor = BgBorder,
                     focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                    cursorColor = AccentBlue, containerColor = BgElevated
+                    cursorColor = AccentBlue, focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated
                 ),
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)

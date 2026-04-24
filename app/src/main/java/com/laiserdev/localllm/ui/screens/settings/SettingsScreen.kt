@@ -43,7 +43,8 @@ fun SettingsScreen(vm: MainViewModel) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                            cursorColor = AccentGreen, containerColor = BgElevated
+                            cursorColor = AccentGreen, focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated
                         ),
                         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
                         maxLines = 5

@@ -253,7 +253,8 @@ fun EditorScreen(vm: MainViewModel) {
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentBlue, unfocusedBorderColor = BgBorder,
                         focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        cursorColor = AccentBlue, containerColor = BgElevated
+                        cursorColor = AccentBlue, focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated
                     ),
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
                     maxLines = 20
@@ -345,7 +346,8 @@ fun NewProjectDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                     focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                    cursorColor = AccentGreen, containerColor = BgElevated,
+                    cursorColor = AccentGreen, focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated,
                     focusedLabelColor = AccentGreen
                 ),
                 modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -376,7 +378,8 @@ fun NewFileDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                         focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        cursorColor = AccentGreen, containerColor = BgElevated
+                        cursorColor = AccentGreen, focusedContainerColor = BgElevated,
+                    unfocusedContainerColor = BgElevated
                     ),
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace)

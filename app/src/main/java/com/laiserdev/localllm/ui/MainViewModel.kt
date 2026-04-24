@@ -108,7 +108,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val buffer = StringBuilder()
             val start = System.currentTimeMillis()
 
-            app.llmRepository.generateStream(content, sysPrompt, imageUri).collect { token ->
+            app.llmRepository.generateStream(content, sysPrompt).collect { token ->
                 buffer.append(token)
                 _messages.update { msgs ->
                     msgs.dropLast(1) + assistantMsg.copy(content = buffer.toString(), isStreaming = true)
