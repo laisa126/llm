@@ -1,0 +1,15 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+*.jks
+*.keystore
+*.apk
+*.aab
+gradle-wrapper.jar
+node_modules/
+dist/
+.env
+.env.local
