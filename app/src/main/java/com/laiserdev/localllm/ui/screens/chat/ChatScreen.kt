@@ -150,8 +150,7 @@ fun ChatScreen(vm: MainViewModel) {
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
                     cursorColor = AccentGreen,
-                    unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated
+                    containerColor = BgElevated
                 ),
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 5,
@@ -291,8 +290,7 @@ fun EmptyState(onSkillsClick: () -> Unit) {
             SuggestionChip(onClick = {}, label = { Text(s, fontSize = 12.sp) },
                 modifier = Modifier.padding(vertical = 3.dp),
                 colors = SuggestionChipDefaults.suggestionChipColors(
-                    unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated, labelColor = TextSecond
+                    containerColor = BgElevated, labelColor = TextSecond
                 ),
                 border = BorderStroke(0.5.dp, BgBorder)
             )
@@ -314,8 +312,7 @@ fun EmptyState(onSkillsClick: () -> Unit) {
 fun SkillsSheet(skills: List<Skill>, onSelect: (Skill) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface,
+        containerColor = BgSurface,
         dragHandle = { BottomSheetDefaults.DragHandle(color = BgBorder) }
     ) {
         Text("Skills", style = MaterialTheme.typography.titleMedium,
@@ -336,8 +333,7 @@ fun SkillsSheet(skills: List<Skill>, onSelect: (Skill) -> Unit, onDismiss: () ->
                         supportingContent = {
                             Text(skill.description, color = TextSecond, fontSize = 12.sp) },
                         modifier = Modifier.clickable { onSelect(skill) },
-                        colors = ListItemDefaults.colors(unfocusedContainerColor = Color,
-                    focusedContainerColor = Color.Transparent)
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                     HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
                 }
@@ -361,8 +357,7 @@ fun SkillVariablesDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface,
+        containerColor = BgSurface,
         title = { Text("${skill.icon} ${skill.name}", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -375,8 +370,7 @@ fun SkillVariablesDialog(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                            cursorColor = AccentGreen, unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated,
+                            cursorColor = AccentGreen, containerColor = BgElevated,
                             focusedLabelColor = AccentGreen
                         ),
                         modifier = Modifier.fillMaxWidth(), maxLines = 4
@@ -386,8 +380,7 @@ fun SkillVariablesDialog(
         },
         confirmButton = {
             Button(onClick = { onConfirm(values.toMap()) },
-                colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep)) {
+                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)) {
                 Text("Apply Skill")
             }
         },

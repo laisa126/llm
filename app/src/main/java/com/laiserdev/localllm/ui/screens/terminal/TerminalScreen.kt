@@ -224,8 +224,7 @@ fun PackageInstallerPanel(onInstall: (String, List<String>) -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentBlue, unfocusedBorderColor = BgBorder,
                     focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                    cursorColor = AccentBlue, unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated
+                    cursorColor = AccentBlue, containerColor = BgElevated
                 ),
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp)
@@ -235,8 +234,7 @@ fun PackageInstallerPanel(onInstall: (String, List<String>) -> Unit) {
                     val pkgs = packages.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                     if (pkgs.isNotEmpty()) onInstall(manager, pkgs)
                 },
-                colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentBlue,
-                    focusedContainerColor = AccentBlue, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White),
                 contentPadding = PaddingValues(horizontal = 14.dp)
             ) { Text("Install", fontSize = 12.sp) }
         }

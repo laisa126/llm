@@ -80,8 +80,7 @@ fun ModelCard(
     Card(
         modifier = Modifier.fillMaxWidth().border(BorderStroke(if (isActive || model.status == ModelStatus.LOADED) 1.dp else 0.5.dp, borderColor), RoundedCornerShape(10.dp)),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(Modifier.padding(14.dp)) {
@@ -160,8 +159,7 @@ fun ModelCard(
                     }
                     isDownloaded -> {
                         Button(onClick = onLoad,
-                            colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentBlue,
-                    focusedContainerColor = AccentBlue, contentColor = Color.White),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                             Icon(Icons.Default.PlayArrow, null, Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
@@ -170,8 +168,7 @@ fun ModelCard(
                     }
                     else -> {
                         Button(onClick = onDownload,
-                            colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                             Icon(Icons.Default.Download, null, Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
@@ -207,8 +204,7 @@ fun HardwareInfoCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface),
+        colors = CardDefaults.cardColors(containerColor = BgSurface),
         border = BorderStroke(0.5.dp, BgBorder)
     ) {
         Column(Modifier.padding(14.dp)) {

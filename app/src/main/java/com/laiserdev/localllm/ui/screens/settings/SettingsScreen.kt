@@ -43,16 +43,14 @@ fun SettingsScreen(vm: MainViewModel) {
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                            cursorColor = AccentGreen, unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated
+                            cursorColor = AccentGreen, containerColor = BgElevated
                         ),
                         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
                         maxLines = 5
                     )
                     Spacer(Modifier.height(6.dp))
                     Button(onClick = { vm.updateSystemPrompt(systemPrompt) },
-                        colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
                         Text("Save", fontSize = 12.sp)
                     }
@@ -111,8 +109,7 @@ fun SettingSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column {
         Text(title.uppercase(), color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 6.dp))
-        Card(colors = CardDefaults.cardColors(unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface),
+        Card(colors = CardDefaults.cardColors(containerColor = BgSurface),
             border = BorderStroke(0.5.dp, BgBorder), shape = RoundedCornerShape(10.dp)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 content()

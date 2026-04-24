@@ -180,8 +180,7 @@ fun EditorScreen(vm: MainViewModel) {
                                 onClick = { vm.saveFile(activeFilePath!!, codeText); isDirty = false },
                                 Modifier.height(26.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp),
-                                colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep)
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)
                             ) { Text("Save", fontSize = 11.sp) }
                         }
                         IconButton(onClick = { showAIPanel = true; aiPrompt = "Explain this file:\n\n$codeText" },
@@ -221,8 +220,7 @@ fun EditorScreen(vm: MainViewModel) {
                         if (activeProject == null) {
                             Spacer(Modifier.height(8.dp))
                             Button(onClick = { showNewProjectDialog = true },
-                                colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep)) {
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)) {
                                 Icon(Icons.Default.Add, null, Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
                                 Text("New Project")
@@ -255,8 +253,7 @@ fun EditorScreen(vm: MainViewModel) {
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentBlue, unfocusedBorderColor = BgBorder,
                         focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        cursorColor = AccentBlue, unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated
+                        cursorColor = AccentBlue, containerColor = BgElevated
                     ),
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
                     maxLines = 20
@@ -271,8 +268,7 @@ fun EditorScreen(vm: MainViewModel) {
                     },
                     modifier = Modifier.fillMaxWidth().padding(8.dp),
                     enabled = aiPrompt.isNotBlank() && !isAgentRunning,
-                    colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentBlue,
-                    focusedContainerColor = AccentBlue, contentColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White)
                 ) {
                     Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
@@ -341,8 +337,7 @@ fun LazyListScope.fileTreeItem(
 fun NewProjectDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss, unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface,
+        onDismissRequest = onDismiss, containerColor = BgSurface,
         title = { Text("New Project", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             OutlinedTextField(value = name, onValueChange = { name = it },
@@ -350,8 +345,7 @@ fun NewProjectDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                     focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                    cursorColor = AccentGreen, unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated,
+                    cursorColor = AccentGreen, containerColor = BgElevated,
                     focusedLabelColor = AccentGreen
                 ),
                 modifier = Modifier.fillMaxWidth(), singleLine = true
@@ -359,8 +353,7 @@ fun NewProjectDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
         },
         confirmButton = {
             Button(onClick = { if (name.isNotBlank()) onConfirm(name.trim()) },
-                colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep)) {
+                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)) {
                 Text("Create")
             }
         },
@@ -372,8 +365,7 @@ fun NewProjectDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
 fun NewFileDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var path by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss, unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface,
+        onDismissRequest = onDismiss, containerColor = BgSurface,
         title = { Text("New File", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Column {
@@ -384,8 +376,7 @@ fun NewFileDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                         focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                        cursorColor = AccentGreen, unfocusedContainerColor = BgElevated,
-                    focusedContainerColor = BgElevated
+                        cursorColor = AccentGreen, containerColor = BgElevated
                     ),
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace)
@@ -394,8 +385,7 @@ fun NewFileDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
         },
         confirmButton = {
             Button(onClick = { if (path.isNotBlank()) onConfirm(path.trim()) },
-                colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep)) {
+                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)) {
                 Text("Create")
             }
         },

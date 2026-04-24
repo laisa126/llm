@@ -44,8 +44,7 @@ fun DeveloperScreen(vm: MainViewModel) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
             // ── Server toggle ──────────────────────────────────────────────────
-            Card(colors = CardDefaults.cardColors(unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface),
+            Card(colors = CardDefaults.cardColors(containerColor = BgSurface),
                 border = BorderStroke(0.5.dp, if (serverRunning) AccentGreen else BgBorder),
                 shape = RoundedCornerShape(10.dp)) {
                 Column(Modifier.padding(14.dp)) {
@@ -95,8 +94,7 @@ fun DeveloperScreen(vm: MainViewModel) {
             }
 
             // ── Get API keys ───────────────────────────────────────────────────
-            Card(colors = CardDefaults.cardColors(unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface),
+            Card(colors = CardDefaults.cardColors(containerColor = BgSurface),
                 border = BorderStroke(0.5.dp, BgBorder), shape = RoundedCornerShape(10.dp)) {
                 Column(Modifier.padding(14.dp)) {
                     Text("API Keys", color = TextPrimary, fontWeight = FontWeight.Bold)
@@ -106,8 +104,7 @@ fun DeveloperScreen(vm: MainViewModel) {
                     Spacer(Modifier.height(10.dp))
                     Button(
                         onClick = { /* Open dashboard URL */ },
-                        colors = ButtonDefaults.buttonColors(unfocusedContainerColor = AccentGreen,
-                    focusedContainerColor = AccentGreen, contentColor = BgDeep),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.OpenInBrowser, null, Modifier.size(16.dp))
@@ -187,8 +184,7 @@ fun ApiEndpointCard(
         "DELETE" -> Color(0xFFF85149)
         else     -> TextSecond
     }
-    Card(colors = CardDefaults.cardColors(unfocusedContainerColor = BgSurface,
-                    focusedContainerColor = BgSurface),
+    Card(colors = CardDefaults.cardColors(containerColor = BgSurface),
         border = BorderStroke(0.5.dp, BgBorder), shape = RoundedCornerShape(8.dp)) {
         Column(Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
