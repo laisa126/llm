@@ -34,7 +34,7 @@ val AVAILABLE_MODELS = listOf(
         "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task","gemma3-1b-int4.task"),
     LLMModel("gemma3-4b","Gemma 3 4B","Vision + code. 6GB+ RAM. ~2.5GB.",2.5f,6,true,true,
         "https://huggingface.co/litert-community/Gemma3-4B-IT/resolve/main/gemma3-4b-it-int4.task","gemma3-4b-int4.task"),
-    LLMModel("gemma4-4b","Gemma 4 4B ⭐","Best reasoning+vision. 8GB+ RAM. ~2.7GB.",2.7f,8,true,true,
+    LLMModel("gemma4-4b","Gemma 4 4B","Best reasoning+vision. 8GB+ RAM. ~2.7GB.",2.7f,8,true,true,
         "https://huggingface.co/litert-community/Gemma4-4B-IT/resolve/main/gemma4-4b-it-int4.task","gemma4-4b-int4.task")
 )
 

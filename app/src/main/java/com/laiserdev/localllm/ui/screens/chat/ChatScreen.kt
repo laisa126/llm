@@ -64,7 +64,7 @@ fun ChatScreen(vm: MainViewModel) {
                 Text("LocalLLM", style = MaterialTheme.typography.titleMedium, color = AccentGreen,
                     fontWeight = FontWeight.Bold)
                 if (activeProject != null) {
-                    Text("📁 ${activeProject!!.name}", style = MaterialTheme.typography.bodySmall, color = TextSecond)
+                    Text(activeProject!!.name, style = MaterialTheme.typography.bodySmall, color = TextSecond)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -93,7 +93,7 @@ fun ChatScreen(vm: MainViewModel) {
 
         // ── Messages ───────────────────────────────────────────────────────────
         if (messages.isEmpty()) {
-            EmptyState(onSkillsClick = { showSkills = true })
+            EmptyState(onSkillsClick = { showSkills = true }, onSuggestion = { inputText = it })
         } else {
             LazyColumn(
                 state = listState,
@@ -219,46 +219,35 @@ fun MessageBubble(msg: ChatMessage) {
             ) { Text("AI", fontSize = 10.sp, color = BgDeep, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(6.dp))
         }
-        Column(horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
-            Box(
-                Modifier
-                    .widthIn(max = 300.dp)
-                    .background(
-                        if (isUser) Color(0xFF1A3A2A) else BgSurface,
-                        RoundedCornerShape(
-                            topStart = if (isUser) 12.dp else 4.dp,
-                            topEnd = if (isUser) 4.dp else 12.dp,
-                            bottomStart = 12.dp, bottomEnd = 12.dp
+        Column(
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
+            modifier = Modifier.widthIn(max = 300.dp)
+        ) {
+            if (isUser) {
+                // User bubble — simple
+                Box(
+                    Modifier
+                        .background(Color(0xFF1A3A2A), RoundedCornerShape(12.dp, 4.dp, 12.dp, 12.dp))
+                        .border(0.5.dp, BgBorder, RoundedCornerShape(12.dp, 4.dp, 12.dp, 12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    if (msg.imageUri != null) {
+                        AsyncImage(
+                            model = msg.imageUri, contentDescription = null,
+                            modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                    )
-                    .border(0.5.dp, BgBorder, RoundedCornerShape(
-                        topStart = if (isUser) 12.dp else 4.dp,
-                        topEnd = if (isUser) 4.dp else 12.dp,
-                        bottomStart = 12.dp, bottomEnd = 12.dp
-                    ))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                if (msg.imageUri != null) {
-                    AsyncImage(
-                        model = msg.imageUri, contentDescription = null,
-                        modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.height(6.dp))
+                        if (msg.content.isNotBlank()) Spacer(Modifier.height(6.dp))
+                    }
+                    if (msg.content.isNotBlank()) {
+                        Text(msg.content, color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp)
+                    }
                 }
-                if (msg.content.isNotBlank()) {
-                    Text(
-                        text = msg.content,
-                        color = if (isUser) TextPrimary else TextPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        fontFamily = if (msg.content.contains("```")) MonoFont else FontFamily.Default
-                    )
-                }
-                if (msg.isStreaming) {
-                    Text("▋", color = AccentGreen, fontSize = 14.sp)
-                }
+            } else {
+                // Assistant bubble — parse code blocks
+                AssistantContent(msg)
             }
+
             if (msg.tokensPerSecond > 0) {
                 Text(
                     "${"%.1f".format(msg.tokensPerSecond)} tok/s",
@@ -271,39 +260,189 @@ fun MessageBubble(msg: ChatMessage) {
 }
 
 @Composable
-fun EmptyState(onSkillsClick: () -> Unit) {
+fun AssistantContent(msg: ChatMessage) {
+    val segments = remember(msg.content) { parseMessageSegments(msg.content) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        segments.forEach { seg ->
+            when (seg) {
+                is MessageSegment.Text -> {
+                    if (seg.text.isNotBlank()) {
+                        Box(
+                            Modifier
+                                .background(BgSurface, RoundedCornerShape(4.dp, 12.dp, 12.dp, 12.dp))
+                                .border(0.5.dp, BgBorder, RoundedCornerShape(4.dp, 12.dp, 12.dp, 12.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(seg.text.trim(), color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp)
+                        }
+                    }
+                }
+                is MessageSegment.Code -> {
+                    CodeBlock(language = seg.language, code = seg.code)
+                }
+            }
+        }
+        if (msg.isStreaming) {
+            Text("▋", color = AccentGreen, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+        }
+    }
+}
+
+@Composable
+fun CodeBlock(language: String, code: String) {
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
     Column(
-        Modifier.fillMaxSize().padding(32.dp),
+        Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0D1117), RoundedCornerShape(8.dp))
+            .border(0.5.dp, BgBorder, RoundedCornerShape(8.dp))
+    ) {
+        // Header bar
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(BgElevated, RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                language.ifBlank { "code" }.lowercase(),
+                color = TextMuted,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
+            )
+            IconButton(
+                onClick = {
+                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(code))
+                    copied = true
+                },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                    null,
+                    Modifier.size(14.dp),
+                    tint = if (copied) AccentGreen else TextMuted
+                )
+            }
+        }
+        // Code content
+        Text(
+            text = code.trimEnd(),
+            color = Color(0xFFE6EDF3),
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        )
+    }
+
+    // Reset "copied" after 2s
+    if (copied) {
+        LaunchedEffect(copied) {
+            kotlinx.coroutines.delay(2000)
+            copied = false
+        }
+    }
+}
+
+sealed class MessageSegment {
+    data class Text(val text: String) : MessageSegment()
+    data class Code(val language: String, val code: String) : MessageSegment()
+}
+
+fun parseMessageSegments(content: String): List<MessageSegment> {
+    val segments = mutableListOf<MessageSegment>()
+    val regex = Regex("```(\\w*)\\n?([\\s\\S]*?)```")
+    var lastEnd = 0
+    for (match in regex.findAll(content)) {
+        if (match.range.first > lastEnd) {
+            segments += MessageSegment.Text(content.substring(lastEnd, match.range.first))
+        }
+        segments += MessageSegment.Code(
+            language = match.groupValues[1],
+            code = match.groupValues[2]
+        )
+        lastEnd = match.range.last + 1
+    }
+    if (lastEnd < content.length) {
+        segments += MessageSegment.Text(content.substring(lastEnd))
+    }
+    return segments.ifEmpty { listOf(MessageSegment.Text(content)) }
+}
+
+@Composable
+fun EmptyState(onSkillsClick: () -> Unit, onSuggestion: (String) -> Unit = {}) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("🤖", fontSize = 48.sp)
-        Spacer(Modifier.height(12.dp))
-        Text("LocalLLM", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(4.dp))
-        Text("Local AI coding assistant", color = TextSecond, fontSize = 14.sp)
-        Spacer(Modifier.height(24.dp))
-        val suggestions = listOf(
-            "Generate a React todo app", "Fix a bug in my code",
-            "Explain this function", "Write a Python script"
-        )
-        suggestions.forEach { s ->
-            SuggestionChip(onClick = {}, label = { Text(s, fontSize = 12.sp) },
-                modifier = Modifier.padding(vertical = 3.dp),
-                colors = SuggestionChipDefaults.suggestionChipColors(
-                    containerColor = BgElevated, labelColor = TextSecond
-                ),
-                border = BorderStroke(0.5.dp, BgBorder)
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        OutlinedButton(onClick = onSkillsClick,
-            border = BorderStroke(1.dp, AccentGreen),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentGreen)
+        // Clean logo — no emoji
+        Box(
+            Modifier
+                .size(56.dp)
+                .background(Color(0xFF1A3A2A), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp))
+            Icon(Icons.Default.Memory, null, Modifier.size(28.dp), tint = AccentGreen)
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("LocalLLM", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(3.dp))
+        Text("Local AI coding assistant", color = TextSecond, fontSize = 13.sp)
+        Spacer(Modifier.height(20.dp))
+
+        // Suggestion chips — 2-column grid, actually clickable
+        val suggestions = listOf(
+            "Generate a React todo app",
+            "Fix a bug in my code",
+            "Explain this function",
+            "Write a Python script"
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            suggestions.chunked(2).forEach { row ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    row.forEach { s ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .background(BgElevated, RoundedCornerShape(10.dp))
+                                .border(0.5.dp, BgBorder, RoundedCornerShape(10.dp))
+                                .clickable { onSuggestion(s) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                        ) {
+                            Text(s, color = TextSecond, fontSize = 12.sp, lineHeight = 16.sp)
+                        }
+                    }
+                    // Pad last row if odd
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(
+            onClick = onSkillsClick,
+            border = BorderStroke(1.dp, AccentGreen),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentGreen),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.AutoAwesome, null, Modifier.size(15.dp))
             Spacer(Modifier.width(6.dp))
-            Text("Browse Skills")
+            Text("Browse Skills", fontSize = 13.sp)
         }
     }
 }
@@ -392,4 +531,4 @@ fun SkillVariablesDialog(
     )
 }
 
-private val MonoFont = FontFamily.Monospace
+

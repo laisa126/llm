@@ -120,14 +120,22 @@ fun ModelCard(
                     color = AccentGreen, trackColor = BgElevated
                 )
                 Spacer(Modifier.height(4.dp))
-                Text("${(model.downloadProgress * 100).toInt()}% downloaded",
-                    color = AccentGreen, fontSize = 11.sp)
+                val pct = (model.downloadProgress * 100).toInt()
+                val downloaded = (model.downloadProgress * model.sizeGb * 1024).toInt()
+                val total = (model.sizeGb * 1024).toInt()
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("$pct%  ·  ${downloaded}MB / ${total}MB",
+                        color = AccentGreen, fontSize = 11.sp)
+                    if (model.downloadProgress > 0 && model.downloadProgress < 1f) {
+                        Text("Downloading...", color = TextMuted, fontSize = 11.sp)
+                    }
+                }
             }
 
             // Error
             if (model.status == ModelStatus.ERROR && model.errorMessage != null) {
                 Spacer(Modifier.height(6.dp))
-                Text("❌ ${model.errorMessage}", color = ErrorRed, fontSize = 11.sp)
+                Text("Error: ${model.errorMessage}", color = ErrorRed, fontSize = 11.sp)
             }
 
             Spacer(Modifier.height(12.dp))
