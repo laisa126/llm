@@ -106,11 +106,12 @@ class ModelDownloadService : Service() {
                         val totalBytes = existingBytes + resumeConn.contentLengthLong
                         var downloadedBytes = existingBytes
                         resumeConn.inputStream.use { input ->
-                            tempFile.outputStream().also { it.channel.position(existingBytes) }.use { output ->
+                            java.io.RandomAccessFile(tempFile, "rw").use { raf ->
+                                raf.seek(existingBytes)
                                 val buffer = ByteArray(32_768)
                                 var bytes: Int
                                 while (input.read(buffer).also { bytes = it } != -1) {
-                                    output.write(buffer, 0, bytes)
+                                    raf.write(buffer, 0, bytes)
                                     downloadedBytes += bytes
                                     val progress = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes) else 0f
                                     updateProgress(modelId, progress)
