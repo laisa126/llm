@@ -62,23 +62,49 @@ class ModelDownloadService : Service() {
                 val outputFile = File(modelsDir, fileName)
                 val tempFile = File(modelsDir, "$fileName.tmp")
 
-                val url = URL(downloadUrl)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connect()
+                // HuggingFace redirects across CDN domains (HTTPS→HTTPS).
+                // HttpURLConnection won't follow cross-host redirects automatically,
+                // so we follow up to 5 hops manually.
+                var currentUrl = downloadUrl
+                var finalConn: HttpURLConnection? = null
+                for (i in 0..5) {
+                    val conn = URL(currentUrl).openConnection() as HttpURLConnection
+                    conn.instanceFollowRedirects = false
+                    conn.connectTimeout = 30_000
+                    conn.readTimeout = 60_000
+                    conn.setRequestProperty("User-Agent", "LocalLLM-Android/1.0")
+                    conn.setRequestProperty("Accept", "*/*")
+                    conn.connect()
+                    val code = conn.responseCode
+                    if (code in 300..399) {
+                        val location = conn.getHeaderField("Location") ?: break
+                        conn.disconnect()
+                        currentUrl = if (location.startsWith("http")) location
+                            else URL(URL(currentUrl), location).toString()
+                    } else {
+                        finalConn = conn
+                        break
+                    }
+                }
 
-                val totalBytes = connection.contentLengthLong
+                val conn = finalConn ?: throw Exception("Too many redirects")
+                val responseCode = conn.responseCode
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw Exception("Server returned HTTP $responseCode")
+                }
+
+                val totalBytes = conn.contentLengthLong
                 var downloadedBytes = 0L
 
-                connection.inputStream.use { input ->
+                conn.inputStream.use { input ->
                     tempFile.outputStream().use { output ->
-                        val buffer = ByteArray(8192)
+                        val buffer = ByteArray(32_768)
                         var bytes: Int
                         while (input.read(buffer).also { bytes = it } != -1) {
                             output.write(buffer, 0, bytes)
                             downloadedBytes += bytes
-                            val progress = if (totalBytes > 0) {
-                                (downloadedBytes.toFloat() / totalBytes)
-                            } else 0f
+                            val progress = if (totalBytes > 0)
+                                (downloadedBytes.toFloat() / totalBytes) else 0f
                             updateProgress(modelId, progress)
                             updateNotification(modelName, (progress * 100).toInt())
                         }
@@ -90,7 +116,11 @@ class ModelDownloadService : Service() {
                 updateStatus(modelId, "ready")
                 notifyComplete(modelName)
             } catch (e: Exception) {
-                updateStatus(modelId, "error:${e.message}")
+                // Strip raw URLs from error message — confusing in UI
+                val msg = (e.message ?: "Unknown error")
+                    .replace(Regex("https?://\\S+"), "[url]")
+                    .take(120)
+                updateStatus(modelId, "error:$msg")
             } finally {
                 stopSelf()
             }
