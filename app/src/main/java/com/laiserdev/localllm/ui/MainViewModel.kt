@@ -9,6 +9,8 @@ import com.laiserdev.localllm.LocalLLMApp
 import com.laiserdev.localllm.data.model.*
 import com.laiserdev.localllm.data.repository.ModelDownloadService
 import com.laiserdev.localllm.server.LLMServerService
+import com.laiserdev.localllm.ui.screens.chat.AgentStep
+import com.laiserdev.localllm.ui.screens.chat.StepStatus
 import com.laiserdev.localllm.util.AgentEvent
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -81,6 +83,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isAgentRunning = MutableStateFlow(false)
     val isAgentRunning: StateFlow<Boolean> = _isAgentRunning.asStateFlow()
 
+    private val _agentSteps = MutableStateFlow<List<AgentStep>>(emptyList())
+    val agentSteps: StateFlow<List<AgentStep>> = _agentSteps.asStateFlow()
+
+    private val _agentThinking = MutableStateFlow<String?>(null)
+    val agentThinking: StateFlow<String?> = _agentThinking.asStateFlow()
+
     // ─── Server State ─────────────────────────────────────────────────────────
 
     private val _serverRunning = MutableStateFlow(false)
@@ -135,35 +143,77 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val project = _activeProject.value ?: return
         viewModelScope.launch {
             _isAgentRunning.value = true
+            _agentSteps.value = emptyList()
+            _agentThinking.value = "Analyzing task..."
+
             val agentMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "", isStreaming = true)
             _messages.update { it + ChatMessage(role = MessageRole.USER, content = prompt) + agentMsg }
 
             val buffer = StringBuilder()
+            var currentStepId: String? = null
+            var stepStartMs = System.currentTimeMillis()
+
             app.toolEngine.agentLoop(prompt, project.path).collect { event ->
                 _agentEvents.emit(event)
                 when (event) {
+                    is AgentEvent.Thinking -> {
+                        _agentThinking.value = event.message
+                    }
                     is AgentEvent.Token -> {
+                        _agentThinking.value = null
                         buffer.append(event.text)
                         _messages.update { msgs ->
                             msgs.dropLast(1) + agentMsg.copy(content = buffer.toString(), isStreaming = true)
                         }
                     }
+                    is AgentEvent.ToolCalling -> {
+                        _agentThinking.value = null
+                        stepStartMs = System.currentTimeMillis()
+                        val step = AgentStep(
+                            toolName = event.name,
+                            args = event.args,
+                            status = StepStatus.RUNNING
+                        )
+                        currentStepId = step.id
+                        _agentSteps.update { it + step }
+                        addTerminalLine("🔧 ${event.name}(${event.args.take(60)})", TerminalLine.LineType.TOOL)
+                    }
+                    is AgentEvent.ToolResult -> {
+                        val duration = System.currentTimeMillis() - stepStartMs
+                        _agentSteps.update { steps ->
+                            steps.map { s ->
+                                if (s.id == currentStepId) s.copy(
+                                    output = event.output,
+                                    status = if (event.isError) StepStatus.ERROR else StepStatus.SUCCESS,
+                                    durationMs = duration
+                                ) else s
+                            }
+                        }
+                        addTerminalLine(
+                            if (event.isError) "❌ ${event.output.take(120)}" else "✅ ${event.output.take(120)}",
+                            if (event.isError) TerminalLine.LineType.ERROR else TerminalLine.LineType.INFO
+                        )
+                        refreshFileTree()
+                    }
                     is AgentEvent.FinalAnswer -> {
+                        _agentThinking.value = null
                         _messages.update { msgs ->
                             msgs.dropLast(1) + agentMsg.copy(content = event.text, isStreaming = false)
                         }
                     }
-                    is AgentEvent.ToolCalling -> {
-                        addTerminalLine("🔧 Tool: ${event.name}(${event.args.take(80)})", TerminalLine.LineType.TOOL)
+                    is AgentEvent.Error -> {
+                        _agentThinking.value = null
+                        addTerminalLine("⚠ ${event.message}", TerminalLine.LineType.ERROR)
+                        _messages.update { msgs ->
+                            msgs.dropLast(1) + agentMsg.copy(
+                                content = buffer.toString().ifBlank { "⚠ ${event.message}" },
+                                isStreaming = false
+                            )
+                        }
                     }
-                    is AgentEvent.ToolResult -> {
-                        addTerminalLine(if (event.isError) "❌ ${event.output}" else "✅ ${event.output.take(200)}", 
-                            if (event.isError) TerminalLine.LineType.ERROR else TerminalLine.LineType.INFO)
-                        refreshFileTree()
-                    }
-                    else -> {}
                 }
             }
+            _agentThinking.value = null
             _isAgentRunning.value = false
         }
     }

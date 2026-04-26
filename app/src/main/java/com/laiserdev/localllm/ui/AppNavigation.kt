@@ -18,10 +18,13 @@ import com.laiserdev.localllm.ui.screens.settings.SettingsScreen
 import com.laiserdev.localllm.ui.screens.terminal.TerminalScreen
 import com.laiserdev.localllm.ui.theme.*
 
+import com.laiserdev.localllm.ui.screens.preview.PreviewScreen
+
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Chat      : Screen("chat",      "Chat",      Icons.Default.Chat)
     object Editor    : Screen("editor",    "Editor",    Icons.Default.Code)
     object Terminal  : Screen("terminal",  "Terminal",  Icons.Default.Terminal)
+    object Preview   : Screen("preview",   "Preview",   Icons.Default.Preview)
     object Models    : Screen("models",    "Models",    Icons.Default.Memory)
     object Developer : Screen("developer", "API",       Icons.Default.Api)
     object Settings  : Screen("settings",  "Settings",  Icons.Default.Settings)
@@ -29,7 +32,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
 
 val bottomScreens = listOf(
     Screen.Chat, Screen.Editor, Screen.Terminal,
-    Screen.Models, Screen.Developer, Screen.Settings
+    Screen.Preview, Screen.Models, Screen.Developer, Screen.Settings
 )
 
 @Composable
@@ -79,6 +82,7 @@ fun AppNavigation(vm: MainViewModel) {
             composable(Screen.Chat.route)      { ChatScreen(vm) }
             composable(Screen.Editor.route)    { EditorScreen(vm) }
             composable(Screen.Terminal.route)  { TerminalScreen(vm) }
+            composable(Screen.Preview.route)   { PreviewScreen(vm) }
             composable(Screen.Models.route)    { ModelsScreen(vm) }
             composable(Screen.Developer.route) { DeveloperScreen(vm) }
             composable(Screen.Settings.route)  { SettingsScreen(vm) }

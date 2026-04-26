@@ -27,6 +27,7 @@ import com.laiserdev.localllm.data.model.ChatMessage
 import com.laiserdev.localllm.data.model.MessageRole
 import com.laiserdev.localllm.data.model.Skill
 import com.laiserdev.localllm.ui.MainViewModel
+import com.laiserdev.localllm.ui.screens.chat.StepStatus
 import com.laiserdev.localllm.ui.theme.*
 
 @Composable
@@ -37,6 +38,8 @@ fun ChatScreen(vm: MainViewModel) {
     val selectedImage by vm.selectedImageUri.collectAsState()
     val skills by vm.skills.collectAsState()
     val activeProject by vm.activeProject.collectAsState()
+    val agentSteps by vm.agentSteps.collectAsState()
+    val agentThinking by vm.agentThinking.collectAsState()
     val listState = rememberLazyListState()
     var inputText by remember { mutableStateOf("") }
     var agentMode by remember { mutableStateOf(false) }
@@ -47,8 +50,12 @@ fun ChatScreen(vm: MainViewModel) {
         ActivityResultContracts.GetContent()
     ) { uri: Uri? -> vm.setSelectedImage(uri) }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+    // Auto-scroll when new steps or messages arrive
+    val totalItems = messages.size + agentSteps.size
+    LaunchedEffect(totalItems) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(
+            (messages.size + agentSteps.size + 1).coerceAtLeast(0)
+        )
     }
 
     Column(Modifier.fillMaxSize().background(BgDeep)) {
@@ -91,8 +98,30 @@ fun ChatScreen(vm: MainViewModel) {
 
         HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
 
+        // ── Agent mode banner ──────────────────────────────────────────────────
+        AnimatedVisibility(
+            visible = agentMode,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Row(
+                Modifier.fillMaxWidth().background(Color(0xFF0D1F17))
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.SmartToy, null, Modifier.size(13.dp), tint = AccentGreen)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (activeProject != null) "Agent will build inside: ${activeProject!!.name}"
+                    else "⚠ Open a project in Editor first to use Agent mode",
+                    color = if (activeProject != null) AccentGreen else WarnYellow,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
         // ── Messages ───────────────────────────────────────────────────────────
-        if (messages.isEmpty()) {
+        if (messages.isEmpty() && agentSteps.isEmpty()) {
             EmptyState(onSkillsClick = { showSkills = true }, onSuggestion = { inputText = it })
         } else {
             LazyColumn(
@@ -103,6 +132,44 @@ fun ChatScreen(vm: MainViewModel) {
             ) {
                 items(messages, key = { it.id }) { msg ->
                     MessageBubble(msg)
+                }
+
+                // Agent steps shown below last message while agent is running
+                if (isAgentRunning && (agentSteps.isNotEmpty() || agentThinking != null)) {
+                    item(key = "agent_steps") {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(BgSurface, RoundedCornerShape(10.dp))
+                                .border(0.5.dp, BgBorder, RoundedCornerShape(10.dp))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.SmartToy, null, Modifier.size(13.dp), tint = AccentGreen)
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("Agent Working", color = AccentGreen, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                }
+                                Text("${agentSteps.size} steps", color = TextMuted, fontSize = 10.sp)
+                            }
+                            AgentStepsPanel(
+                                steps = agentSteps,
+                                thinking = agentThinking
+                            )
+                        }
+                    }
+                }
+
+                // After agent finishes, show a compact summary
+                if (!isAgentRunning && agentSteps.isNotEmpty()) {
+                    item(key = "agent_summary") {
+                        AgentSummaryRow(agentSteps)
+                    }
                 }
             }
         }
@@ -194,7 +261,7 @@ fun ChatScreen(vm: MainViewModel) {
     selectedSkill?.let { skill ->
         SkillVariablesDialog(
             skill = skill,
-            extractVars = { vm.skills.value }, // pass through
+            extractVars = { vm.skills.value },
             skillsManager = null,
             onConfirm = { vars ->
                 selectedSkill = null
@@ -202,6 +269,49 @@ fun ChatScreen(vm: MainViewModel) {
             },
             onDismiss = { selectedSkill = null }
         )
+    }
+}
+
+@Composable
+fun AgentSummaryRow(steps: List<AgentStep>) {
+    val successCount = steps.count { it.status == StepStatus.SUCCESS }
+    val errorCount = steps.count { it.status == StepStatus.ERROR }
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(BgSurface, RoundedCornerShape(8.dp))
+            .border(0.5.dp, BgBorder, RoundedCornerShape(8.dp))
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.CheckCircle, null, Modifier.size(13.dp), tint = AccentGreen)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "Agent completed · $successCount tools used" + if (errorCount > 0) " · $errorCount errors" else "",
+                color = if (errorCount > 0) WarnYellow else AccentGreen,
+                fontSize = 12.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                null, Modifier.size(14.dp), tint = TextMuted
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                Modifier.padding(horizontal = 10.dp).padding(bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                steps.forEach { step -> AgentStepCard(step) }
+            }
+        }
     }
 }
 
