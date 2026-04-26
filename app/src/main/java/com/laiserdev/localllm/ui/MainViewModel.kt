@@ -9,6 +9,7 @@ import com.laiserdev.localllm.LocalLLMApp
 import com.laiserdev.localllm.data.model.*
 import com.laiserdev.localllm.data.repository.ChatHistoryRepository
 import com.laiserdev.localllm.data.repository.ChatSession
+import com.laiserdev.localllm.data.repository.ModelDownloadService
 import com.laiserdev.localllm.server.LLMServerService
 import com.laiserdev.localllm.ui.screens.chat.AgentStep
 import com.laiserdev.localllm.ui.screens.chat.StepStatus
