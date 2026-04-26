@@ -21,6 +21,7 @@ class SettingsManager(private val context: Context) {
         val TEMPERATURE = floatPreferencesKey("temperature")
         val SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         val THEME = stringPreferencesKey("theme")
+        val HF_TOKEN = stringPreferencesKey("hf_token")
         val FONT_SIZE = intPreferencesKey("font_size")
     }
 
@@ -34,7 +35,8 @@ class SettingsManager(private val context: Context) {
             systemPrompt = prefs[Keys.SYSTEM_PROMPT]
                 ?: "You are an expert software engineer AI assistant.",
             theme = prefs[Keys.THEME] ?: "dark",
-            fontSize = prefs[Keys.FONT_SIZE] ?: 14
+            fontSize = prefs[Keys.FONT_SIZE] ?: 14,
+            hfToken = prefs[Keys.HF_TOKEN] ?: ""
         )
     }
 
@@ -51,4 +53,5 @@ class SettingsManager(private val context: Context) {
     suspend fun setMaxTokens(n: Int) = update { it[Keys.MAX_TOKENS] = n }
     suspend fun setTheme(theme: String) = update { it[Keys.THEME] = theme }
     suspend fun setFontSize(size: Int) = update { it[Keys.FONT_SIZE] = size }
+    suspend fun setHfToken(token: String) = update { it[Keys.HF_TOKEN] = token.trim() }
 }

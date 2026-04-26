@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             LocalLLMTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize().imePadding(),
+                    modifier = Modifier.fillMaxSize(),
                     color = BgDeep
                 ) {
                     val vm: MainViewModel = viewModel()

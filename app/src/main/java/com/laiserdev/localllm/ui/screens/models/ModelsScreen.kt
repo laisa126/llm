@@ -36,7 +36,26 @@ fun ModelsScreen(vm: MainViewModel) {
         }
         HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
 
-        // Loading indicator
+        // HF token warning banner
+        if (settings.hfToken.isBlank()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF1A1500))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Warning, null, Modifier.size(16.dp), tint = WarnYellow)
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("HuggingFace token required", color = WarnYellow,
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Go to Settings → HuggingFace Token to add your token before downloading.",
+                        color = TextSecond, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+            }
+            HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+        }
         if (loadingState != null) {
             Row(
                 Modifier.fillMaxWidth().background(Color(0xFF1A2A1A)).padding(12.dp),

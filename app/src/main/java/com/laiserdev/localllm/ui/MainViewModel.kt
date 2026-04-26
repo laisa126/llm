@@ -505,6 +505,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             putExtra(ModelDownloadService.EXTRA_MODEL_NAME, model.name)
             putExtra(ModelDownloadService.EXTRA_DOWNLOAD_URL, model.downloadUrl)
             putExtra(ModelDownloadService.EXTRA_FILE_NAME, model.fileName)
+            putExtra(ModelDownloadService.EXTRA_HF_TOKEN, settings.value.hfToken)
         }
         getApplication<Application>().startForegroundService(intent)
         updateModelStatus(model.id, ModelStatus.DOWNLOADING)
@@ -603,5 +604,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun updateFontSize(size: Int) {
         viewModelScope.launch { app.settingsManager.setFontSize(size) }
+    }
+
+    fun updateHfToken(token: String) {
+        viewModelScope.launch { app.settingsManager.setHfToken(token) }
     }
 }

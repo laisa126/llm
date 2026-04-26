@@ -71,12 +71,16 @@ fun AppNavigation(vm: MainViewModel) {
                 }
             }
         },
+        contentWindowInsets = WindowInsets(0),
         containerColor = BgDeep
     ) { padding ->
         NavHost(
             navController = navController,
             startDestination = Screen.Chat.route,
-            modifier = Modifier.padding(padding),
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .imePadding(),
             enterTransition = { fadeIn() + slideInHorizontally() },
             exitTransition = { fadeOut() }
         ) {

@@ -23,6 +23,7 @@ class ModelDownloadService : Service() {
         const val EXTRA_MODEL_NAME = "model_name"
         const val EXTRA_DOWNLOAD_URL = "download_url"
         const val EXTRA_FILE_NAME = "file_name"
+        const val EXTRA_HF_TOKEN = "hf_token"
         const val ACTION_CANCEL = "cancel_download"
 
         private val _downloadProgress = MutableStateFlow<Map<String, Float>>(emptyMap())
@@ -45,15 +46,17 @@ class ModelDownloadService : Service() {
         val modelName = intent.getStringExtra(EXTRA_MODEL_NAME) ?: modelId
         val downloadUrl = intent.getStringExtra(EXTRA_DOWNLOAD_URL) ?: return START_NOT_STICKY
         val fileName = intent.getStringExtra(EXTRA_FILE_NAME) ?: return START_NOT_STICKY
+        val hfToken = intent.getStringExtra(EXTRA_HF_TOKEN) ?: ""
 
         startForeground(modelId.hashCode(), buildNotification(modelName, 0))
-        downloadModel(modelId, modelName, downloadUrl, fileName)
+        downloadModel(modelId, modelName, downloadUrl, fileName, hfToken)
         return START_STICKY
     }
 
     private fun downloadModel(
         modelId: String, modelName: String,
-        downloadUrl: String, fileName: String
+        downloadUrl: String, fileName: String,
+        hfToken: String = ""
     ) {
         scope.launch {
             try {
@@ -74,6 +77,9 @@ class ModelDownloadService : Service() {
                     conn.readTimeout = 60_000
                     conn.setRequestProperty("User-Agent", "LocalLLM-Android/1.0")
                     conn.setRequestProperty("Accept", "*/*")
+                    if (hfToken.isNotBlank()) {
+                        conn.setRequestProperty("Authorization", "Bearer $hfToken")
+                    }
                     conn.connect()
                     val code = conn.responseCode
                     if (code in 300..399) {
@@ -100,6 +106,9 @@ class ModelDownloadService : Service() {
                     resumeConn.readTimeout = 60_000
                     resumeConn.setRequestProperty("User-Agent", "LocalLLM-Android/1.0")
                     resumeConn.setRequestProperty("Range", "bytes=$existingBytes-")
+                    if (hfToken.isNotBlank()) {
+                        resumeConn.setRequestProperty("Authorization", "Bearer $hfToken")
+                    }
                     resumeConn.connect()
                     val resumeCode = resumeConn.responseCode
                     if (resumeCode == 206) { // Partial content — resume works
@@ -131,6 +140,14 @@ class ModelDownloadService : Service() {
                 }
 
                 val responseCode = conn.responseCode
+                if (responseCode == 401 || responseCode == 403) {
+                    throw Exception(
+                        "Access denied (HTTP $responseCode). To download Gemma models:\n" +
+                        "1. Accept the license at huggingface.co/google/gemma\n" +
+                        "2. Get a token at huggingface.co/settings/tokens\n" +
+                        "3. Paste your token in Settings → HuggingFace Token"
+                    )
+                }
                 if (responseCode != HttpURLConnection.HTTP_OK) {
                     throw Exception("Server returned HTTP $responseCode")
                 }
@@ -158,10 +175,10 @@ class ModelDownloadService : Service() {
                 updateStatus(modelId, "ready")
                 notifyComplete(modelName)
             } catch (e: Exception) {
-                // Strip raw URLs from error message — confusing in UI
+                // Strip raw URLs from error message but preserve newlines for readability
                 val msg = (e.message ?: "Unknown error")
                     .replace(Regex("https?://\\S+"), "[url]")
-                    .take(120)
+                    .take(300)
                 updateStatus(modelId, "error:$msg")
             } finally {
                 stopSelf()

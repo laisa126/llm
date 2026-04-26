@@ -88,6 +88,70 @@ fun SettingsScreen(vm: MainViewModel) {
                 }
             }
 
+            SettingSection("HuggingFace") {
+                val hfToken = settings.hfToken
+                var tokenInput by remember(hfToken) { mutableStateOf(hfToken) }
+                var tokenVisible by remember { mutableStateOf(false) }
+
+                SettingRow("Access Token") {
+                    Text(
+                        "Required to download Gemma models. Accept the license at huggingface.co/google/gemma then get a token at huggingface.co/settings/tokens",
+                        color = TextMuted, fontSize = 11.sp, lineHeight = 16.sp
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = tokenInput,
+                        onValueChange = { tokenInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("hf_xxxxxxxxxxxxxxxxxxxx", color = TextMuted, fontSize = 12.sp) },
+                        visualTransformation = if (tokenVisible)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { tokenVisible = !tokenVisible }) {
+                                Icon(
+                                    if (tokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    null, Modifier.size(18.dp), tint = TextMuted
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentGreen,
+                            unfocusedBorderColor = BgBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            cursorColor = AccentGreen,
+                            focusedContainerColor = BgElevated,
+                            unfocusedContainerColor = BgElevated
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontSize = 12.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Button(
+                        onClick = { vm.updateHfToken(tokenInput) },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Lock, null, Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Save Token")
+                    }
+                    if (hfToken.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, null, Modifier.size(13.dp), tint = AccentGreen)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Token saved — downloads should work now", color = AccentGreen, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
             SettingSection("About") {
                 SettingRow("Version") {
                     Text(BuildConfig.VERSION_NAME, color = TextSecond, fontSize = 13.sp,
