@@ -134,10 +134,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ─── Onboarding ───────────────────────────────────────────────────────────
+
+    val onboardingDone = app.settingsManager.onboardingDone
+
+    fun completeOnboarding() {
+        viewModelScope.launch { app.settingsManager.setOnboardingDone() }
+    }
+
     // ─── Chat ─────────────────────────────────────────────────────────────────
 
     fun sendMessage(content: String, imageUri: Uri? = null) {
         viewModelScope.launch {
+            // Guard: no model loaded
+            if (!app.llmRepository.isLoaded()) {
+                _messages.update {
+                    it + ChatMessage(role = MessageRole.USER, content = content) +
+                    ChatMessage(
+                        role = MessageRole.ASSISTANT,
+                        content = "⚠️ No model loaded. Go to the **Models** tab, download a model, then tap **Load Model** before chatting."
+                    )
+                }
+                return@launch
+            }
+
             val userMsg = ChatMessage(role = MessageRole.USER, content = content, imageUri = imageUri?.toString())
             _messages.update { it + userMsg }
             _selectedImageUri.value = null
@@ -176,11 +196,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ─── Agent (tool-use) ─────────────────────────────────────────────────────
 
     fun runAgent(prompt: String) {
-        val project = _activeProject.value ?: return
+        val project = _activeProject.value ?: run {
+            _messages.update {
+                it + ChatMessage(role = MessageRole.USER, content = prompt) +
+                ChatMessage(role = MessageRole.ASSISTANT,
+                    content = "⚠️ No project open. Go to the **Editor** tab and open or create a project first.")
+            }
+            return
+        }
+        if (!app.llmRepository.isLoaded()) {
+            _messages.update {
+                it + ChatMessage(role = MessageRole.USER, content = prompt) +
+                ChatMessage(role = MessageRole.ASSISTANT,
+                    content = "⚠️ No model loaded. Go to the **Models** tab, download and load a model first.")
+            }
+            return
+        }
         viewModelScope.launch {
             _isAgentRunning.value = true
             _agentSteps.value = emptyList()
             _agentThinking.value = "Analyzing task..."
+
+            // Build rich project context for the agent system prompt
+            val fileList = try {
+                File(project.path).walkTopDown()
+                    .filter { it.isFile }
+                    .take(60)
+                    .map { it.relativeTo(File(project.path)).path }
+                    .joinToString("\n")
+            } catch (_: Exception) { "" }
+
+            val projectContext = buildString {
+                appendLine("Project: ${project.name}")
+                appendLine("Language: ${project.language.ifBlank { "auto-detect" }}")
+                appendLine("Path: ${project.path}")
+                if (fileList.isNotBlank()) {
+                    appendLine("Files:")
+                    appendLine(fileList)
+                }
+            }
 
             val agentMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "", isStreaming = true)
             _messages.update { it + ChatMessage(role = MessageRole.USER, content = prompt) + agentMsg }
@@ -189,7 +243,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var currentStepId: String? = null
             var stepStartMs = System.currentTimeMillis()
 
-            app.toolEngine.agentLoop(prompt, project.path).collect { event ->
+            app.toolEngine.agentLoop(prompt, project.path, systemExtra = projectContext).collect { event ->
                 _agentEvents.emit(event)
                 when (event) {
                     is AgentEvent.Thinking -> {

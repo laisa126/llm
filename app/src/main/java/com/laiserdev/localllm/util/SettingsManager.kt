@@ -15,6 +15,7 @@ class SettingsManager(private val context: Context) {
     private object Keys {
         val SERVER_PORT = intPreferencesKey("server_port")
         val SERVER_ENABLED = booleanPreferencesKey("server_enabled")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val ACTIVE_MODEL_ID = stringPreferencesKey("active_model_id")
         val MAX_TOKENS = intPreferencesKey("max_tokens")
         val TEMPERATURE = floatPreferencesKey("temperature")
@@ -43,6 +44,8 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setActiveModel(id: String) = update { it[Keys.ACTIVE_MODEL_ID] = id }
     suspend fun setServerEnabled(enabled: Boolean) = update { it[Keys.SERVER_ENABLED] = enabled }
+    suspend fun setOnboardingDone() = update { it[Keys.ONBOARDING_DONE] = true }
+    val onboardingDone: Flow<Boolean> = context.dataStore.data.map { it[Keys.ONBOARDING_DONE] ?: false }
     suspend fun setSystemPrompt(prompt: String) = update { it[Keys.SYSTEM_PROMPT] = prompt }
     suspend fun setTemperature(t: Float) = update { it[Keys.TEMPERATURE] = t }
     suspend fun setMaxTokens(n: Int) = update { it[Keys.MAX_TOKENS] = n }

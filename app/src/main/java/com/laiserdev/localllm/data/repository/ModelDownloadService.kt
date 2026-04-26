@@ -88,6 +88,47 @@ class ModelDownloadService : Service() {
                 }
 
                 val conn = finalConn ?: throw Exception("Too many redirects")
+
+                // Resume support: if temp file exists, request bytes from where we left off
+                val existingBytes = if (tempFile.exists()) tempFile.length() else 0L
+                if (existingBytes > 0) {
+                    conn.disconnect()
+                    // Re-open connection with Range header
+                    val resumeConn = URL(currentUrl).openConnection() as HttpURLConnection
+                    resumeConn.instanceFollowRedirects = true
+                    resumeConn.connectTimeout = 30_000
+                    resumeConn.readTimeout = 60_000
+                    resumeConn.setRequestProperty("User-Agent", "LocalLLM-Android/1.0")
+                    resumeConn.setRequestProperty("Range", "bytes=$existingBytes-")
+                    resumeConn.connect()
+                    val resumeCode = resumeConn.responseCode
+                    if (resumeCode == 206) { // Partial content — resume works
+                        val totalBytes = existingBytes + resumeConn.contentLengthLong
+                        var downloadedBytes = existingBytes
+                        resumeConn.inputStream.use { input ->
+                            tempFile.outputStream().also { it.channel.position(existingBytes) }.use { output ->
+                                val buffer = ByteArray(32_768)
+                                var bytes: Int
+                                while (input.read(buffer).also { bytes = it } != -1) {
+                                    output.write(buffer, 0, bytes)
+                                    downloadedBytes += bytes
+                                    val progress = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes) else 0f
+                                    updateProgress(modelId, progress)
+                                    updateNotification(modelName, (progress * 100).toInt())
+                                }
+                            }
+                        }
+                        tempFile.renameTo(outputFile)
+                        updateProgress(modelId, 1f)
+                        updateStatus(modelId, "ready")
+                        notifyComplete(modelName)
+                        return@launch
+                    }
+                    // Server doesn't support resume — fall through to full download
+                    resumeConn.disconnect()
+                    tempFile.delete()
+                }
+
                 val responseCode = conn.responseCode
                 if (responseCode != HttpURLConnection.HTTP_OK) {
                     throw Exception("Server returned HTTP $responseCode")

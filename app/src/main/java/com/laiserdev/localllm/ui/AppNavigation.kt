@@ -45,7 +45,8 @@ fun AppNavigation(vm: MainViewModel) {
         bottomBar = {
             NavigationBar(
                 containerColor = BgSurface,
-                tonalElevation = 0.dp
+                tonalElevation = 0.dp,
+                windowInsets = androidx.compose.foundation.layout.WindowInsets.navigationBars
             ) {
                 bottomScreens.forEach { screen ->
                     NavigationBarItem(

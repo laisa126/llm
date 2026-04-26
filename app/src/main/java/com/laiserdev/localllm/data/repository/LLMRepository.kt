@@ -20,18 +20,36 @@ class LLMRepository(private val context: Context) {
         withContext(Dispatchers.IO) {
             try {
                 if (currentModelId == modelId && llmInference != null) return@withContext Result.success(Unit)
+
+                // Primary location: filesDir/models (where ModelDownloadService saves)
                 val modelFile = File(context.filesDir, "models/$fileName")
-                if (!modelFile.exists()) return@withContext Result.failure(Exception("Model not downloaded: $fileName"))
-                llmInference?.close(); llmInference = null
+                if (!modelFile.exists()) {
+                    return@withContext Result.failure(
+                        Exception("Model file not found. Please download it first from the Models tab.")
+                    )
+                }
+
+                // MediaPipe requires the file to be readable. filesDir is app-private
+                // but MediaPipe reads it directly via the path — this works fine as long
+                // as we pass the absolute path from the same app context.
+                llmInference?.close()
+                llmInference = null
+
+                Log.d(TAG, "Loading model from: ${modelFile.absolutePath} (${modelFile.length() / 1_000_000}MB)")
+
                 val options = LlmInference.LlmInferenceOptions.builder()
                     .setModelPath(modelFile.absolutePath)
                     .setMaxTokens(4096)
+                    .setNumDecode(512)
                     .build()
                 llmInference = LlmInference.createFromOptions(context, options)
                 currentModelId = modelId
                 Log.d(TAG, "✅ Model loaded: $fileName")
                 Result.success(Unit)
-            } catch (e: Exception) { Log.e(TAG, "❌ Failed", e); Result.failure(e) }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Load failed", e)
+                Result.failure(Exception("Failed to load model: ${e.message?.take(200) ?: "Unknown error"}"))
+            }
         }
 
     fun isLoaded() = llmInference != null

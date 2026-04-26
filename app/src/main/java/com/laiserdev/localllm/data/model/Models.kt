@@ -30,12 +30,18 @@ data class LLMModel(
 )
 
 val AVAILABLE_MODELS = listOf(
-    LLMModel("gemma3-1b","Gemma 3 1B","Ultra-fast. ~700MB.",0.7f,3,false,true,
-        "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task","gemma3-1b-int4.task"),
-    LLMModel("gemma3-4b","Gemma 3 4B","Vision + code. 6GB+ RAM. ~2.5GB.",2.5f,6,true,true,
-        "https://huggingface.co/litert-community/Gemma3-4B-IT/resolve/main/gemma3-4b-it-int4.task","gemma3-4b-int4.task"),
-    LLMModel("gemma4-4b","Gemma 4 4B","Best reasoning+vision. 8GB+ RAM. ~2.7GB.",2.7f,8,true,true,
-        "https://huggingface.co/litert-community/Gemma4-4B-IT/resolve/main/gemma4-4b-it-int4.task","gemma4-4b-int4.task")
+    // ⭐ Best starter — fast, 700MB, works on 3GB RAM phones
+    LLMModel("gemma3-1b","Gemma 3 1B ⭐","Ultra-fast coding assistant. ~700MB.",0.7f,3,false,true,
+        "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task",
+        "gemma3-1b-int4.task"),
+    // Balanced — vision + code, good for most tasks
+    LLMModel("gemma3-4b","Gemma 3 4B","Vision + code. Needs 6GB+ RAM. ~2.5GB.",2.5f,6,true,true,
+        "https://huggingface.co/litert-community/Gemma3-4B-IT/resolve/main/gemma3-4b-it-int4.task",
+        "gemma3-4b-int4.task"),
+    // NOTE: Gemma 3n uses MediaPipe-compatible .task format (Gemma 4 does not)
+    LLMModel("gemma3n-e4b","Gemma 3n E4B","Best quality. Needs 8GB+ RAM. ~2.0GB.",2.0f,8,true,true,
+        "https://huggingface.co/litert-community/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task",
+        "gemma3n-e4b-int4.task")
 )
 
 data class Project(
