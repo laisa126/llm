@@ -44,8 +44,10 @@ class LLMServerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        llmRepo = LLMRepository(applicationContext)
-        apiKeyRepo = ApiKeyRepository()
+        // Use the app-level singleton so the same loaded model is shared
+        val app = applicationContext as LocalLLMApp
+        llmRepo = app.llmRepository
+        apiKeyRepo = app.apiKeyRepository
     }
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

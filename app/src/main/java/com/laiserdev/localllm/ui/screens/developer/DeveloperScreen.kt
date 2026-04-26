@@ -103,7 +103,13 @@ fun DeveloperScreen(vm: MainViewModel) {
                         color = TextSecond, fontSize = 12.sp, lineHeight = 17.sp)
                     Spacer(Modifier.height(10.dp))
                     Button(
-                        onClick = { /* Open dashboard URL */ },
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://in16-hub.vercel.app/dashboard")
+                            )
+                            context.startActivity(intent)
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
                         modifier = Modifier.fillMaxWidth()
                     ) {

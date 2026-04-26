@@ -98,9 +98,10 @@ fun EditorScreen(vm: MainViewModel) {
 
                 // File tree
                 if (fileTree != null) {
+                    val expandedPaths = remember { mutableSetOf<String>() }
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
                         fileTree!!.children.forEach { child ->
-                            fileTreeItem(child, 0, activeFilePath, vm)
+                            fileTreeItem(child, 0, activeFilePath, vm, expandedPaths)
                         }
                     }
                 } else {
@@ -296,18 +297,25 @@ fun EditorScreen(vm: MainViewModel) {
 
 fun LazyListScope.fileTreeItem(
     file: ProjectFile, depth: Int,
-    activeFilePath: String?, vm: MainViewModel
+    activeFilePath: String?, vm: MainViewModel,
+    expandedPaths: MutableSet<String>
 ) {
     item(key = file.absolutePath) {
-        var expanded by remember { mutableStateOf(depth < 1) }
+        val isExpanded = remember(file.absolutePath) { expandedPaths.contains(file.absolutePath) }
+        var expanded by remember(file.absolutePath) {
+            mutableStateOf(if (depth == 0) true else expandedPaths.contains(file.absolutePath))
+        }
         val isActive = file.absolutePath == activeFilePath
         Row(
             Modifier
                 .fillMaxWidth()
                 .background(if (isActive) Color(0xFF1A3A2A) else Color.Transparent)
                 .clickable {
-                    if (file.isDirectory) expanded = !expanded
-                    else vm.openFile(file.absolutePath)
+                    if (file.isDirectory) {
+                        expanded = !expanded
+                        if (expanded) expandedPaths.add(file.absolutePath)
+                        else expandedPaths.remove(file.absolutePath)
+                    } else vm.openFile(file.absolutePath)
                 }
                 .padding(start = (16 + depth * 12).dp, top = 4.dp, bottom = 4.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -325,11 +333,16 @@ fun LazyListScope.fileTreeItem(
             Text(file.name, color = if (isActive) AccentGreen else TextPrimary, fontSize = 12.sp,
                 modifier = Modifier.weight(1f))
         }
+        if (expanded && file.isDirectory && file.children.isNotEmpty()) {
+            // Children rendered as sibling items (LazyColumn limitation — use sub-LazyColumn workaround)
+        }
     }
     if (file.isDirectory && file.children.isNotEmpty()) {
-        // Expanded state is tracked per item — simplified here
-        file.children.forEach { child ->
-            fileTreeItem(child, depth + 1, activeFilePath, vm)
+        val isExpanded = expandedPaths.contains(file.absolutePath) || depth == 0
+        if (isExpanded) {
+            file.children.forEach { child ->
+                fileTreeItem(child, depth + 1, activeFilePath, vm, expandedPaths)
+            }
         }
     }
 }

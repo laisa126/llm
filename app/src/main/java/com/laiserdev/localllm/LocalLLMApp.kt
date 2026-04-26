@@ -13,6 +13,8 @@ import com.laiserdev.localllm.util.SkillsManager
 import com.laiserdev.localllm.util.TerminalExecutor
 import com.laiserdev.localllm.util.ToolEngine
 
+import com.laiserdev.localllm.data.repository.ChatHistoryRepository
+
 class LocalLLMApp : Application() {
 
     // Manual DI - singletons
@@ -24,6 +26,7 @@ class LocalLLMApp : Application() {
     val packageManager by lazy { PackageManager(this) }
     val skillsManager by lazy { SkillsManager(this) }
     val toolEngine by lazy { ToolEngine(this, llmRepository, terminalExecutor, packageManager, projectRepository) }
+    val chatHistoryRepository by lazy { ChatHistoryRepository(this) }
 
     companion object {
         const val CHANNEL_SERVER   = "llm_server"

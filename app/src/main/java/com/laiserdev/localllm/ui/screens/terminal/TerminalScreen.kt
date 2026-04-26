@@ -70,7 +70,7 @@ fun TerminalScreen(vm: MainViewModel) {
                     Icon(Icons.Default.Extension, "Packages", tint = AccentBlue, modifier = Modifier.size(16.dp))
                 }
                 if (isRunning) {
-                    IconButton(onClick = { vm.terminalLines }, Modifier.size(32.dp)) {
+                    IconButton(onClick = { vm.killCurrentProcess() }, Modifier.size(32.dp)) {
                         Icon(Icons.Default.Stop, "Kill", tint = ErrorRed, modifier = Modifier.size(16.dp))
                     }
                 }

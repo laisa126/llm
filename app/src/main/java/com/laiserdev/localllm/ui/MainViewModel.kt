@@ -7,7 +7,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.laiserdev.localllm.LocalLLMApp
 import com.laiserdev.localllm.data.model.*
-import com.laiserdev.localllm.data.repository.ModelDownloadService
+import com.laiserdev.localllm.data.repository.ChatHistoryRepository
+import com.laiserdev.localllm.data.repository.ChatSession
 import com.laiserdev.localllm.server.LLMServerService
 import com.laiserdev.localllm.ui.screens.chat.AgentStep
 import com.laiserdev.localllm.ui.screens.chat.StepStatus
@@ -89,6 +90,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _agentThinking = MutableStateFlow<String?>(null)
     val agentThinking: StateFlow<String?> = _agentThinking.asStateFlow()
 
+    private val _chatSessions = MutableStateFlow<List<ChatSession>>(emptyList())
+    val chatSessions: StateFlow<List<ChatSession>> = _chatSessions.asStateFlow()
+
     // ─── Server State ─────────────────────────────────────────────────────────
 
     private val _serverRunning = MutableStateFlow(false)
@@ -98,6 +102,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadProjects()
         loadSkills()
         observeDownloadProgress()
+        restoreLastSession()
+    }
+
+    private fun restoreLastSession() {
+        viewModelScope.launch {
+            val msgs = app.chatHistoryRepository.loadLastSession()
+            if (msgs.isNotEmpty()) _messages.value = msgs
+            refreshChatSessions()
+        }
+    }
+
+    fun refreshChatSessions() {
+        viewModelScope.launch {
+            _chatSessions.value = app.chatHistoryRepository.listSessions()
+        }
+    }
+
+    fun loadChatSession(fileName: String) {
+        viewModelScope.launch {
+            val msgs = app.chatHistoryRepository.loadSession(fileName)
+            if (msgs.isNotEmpty()) _messages.value = msgs
+        }
+    }
+
+    fun deleteChatSession(fileName: String) {
+        viewModelScope.launch {
+            app.chatHistoryRepository.deleteSession(fileName)
+            refreshChatSessions()
+        }
     }
 
     // ─── Chat ─────────────────────────────────────────────────────────────────
@@ -130,6 +163,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             _isGenerating.value = false
+            // Persist after each completed exchange
+            app.chatHistoryRepository.saveSession(_messages.value)
         }
     }
 
@@ -393,6 +428,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isRunningCommand.value = false
             refreshFileTree()
         }
+    }
+
+    fun killCurrentProcess() {
+        app.terminalExecutor.killCurrentProcess()
+        _isRunningCommand.value = false
+        addTerminalLine("⏹ Process killed", TerminalLine.LineType.INFO)
     }
 
     fun clearTerminal() { _terminalLines.value = emptyList() }

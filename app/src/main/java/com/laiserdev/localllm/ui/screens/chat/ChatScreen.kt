@@ -40,10 +40,12 @@ fun ChatScreen(vm: MainViewModel) {
     val activeProject by vm.activeProject.collectAsState()
     val agentSteps by vm.agentSteps.collectAsState()
     val agentThinking by vm.agentThinking.collectAsState()
+    val chatSessions by vm.chatSessions.collectAsState()
     val listState = rememberLazyListState()
     var inputText by remember { mutableStateOf("") }
     var agentMode by remember { mutableStateOf(false) }
     var showSkills by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
     var selectedSkill by remember { mutableStateOf<Skill?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -89,6 +91,9 @@ fun ChatScreen(vm: MainViewModel) {
                 )
                 IconButton(onClick = { showSkills = true }, Modifier.size(36.dp)) {
                     Icon(Icons.Default.AutoAwesome, "Skills", tint = AccentBlue, modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = { vm.refreshChatSessions(); showHistory = true }, Modifier.size(36.dp)) {
+                    Icon(Icons.Default.History, "History", tint = TextSecond, modifier = Modifier.size(20.dp))
                 }
                 IconButton(onClick = { vm.clearChat() }, Modifier.size(36.dp)) {
                     Icon(Icons.Default.Delete, "Clear", tint = TextSecond, modifier = Modifier.size(20.dp))
@@ -244,6 +249,16 @@ fun ChatScreen(vm: MainViewModel) {
                 }
             }
         }
+    }
+
+    // ── Chat History sheet ─────────────────────────────────────────────────────
+    if (showHistory) {
+        ChatHistorySheet(
+            sessions = chatSessions,
+            onLoad = { fileName -> vm.loadChatSession(fileName) },
+            onDelete = { fileName -> vm.deleteChatSession(fileName) },
+            onDismiss = { showHistory = false }
+        )
     }
 
     // ── Skills bottom sheet ────────────────────────────────────────────────────

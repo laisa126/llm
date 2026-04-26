@@ -4,9 +4,9 @@ import android.content.Context
 import android.util.Log
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -37,13 +37,20 @@ class LLMRepository(private val context: Context) {
     fun isLoaded() = llmInference != null
     fun currentModel() = currentModelId
 
-    // Streaming: run blocking generateResponse on IO thread, emit full result as single token
-    // MediaPipe 0.10.14 doesn't expose token streaming - full response comes at once
+    // Streaming: MediaPipe 0.10.14 returns full response at once.
+    // We chunk it into word-sized tokens with a small delay for a smooth streaming UX.
     fun generateStream(prompt: String, systemPrompt: String = ""): Flow<String> = flow {
         val inference = llmInference ?: throw Exception("No model loaded")
-        val result = inference.generateResponse(buildPrompt(systemPrompt, prompt))
-        emit(result)
-    }.flowOn(Dispatchers.IO)
+        val full = withContext(Dispatchers.IO) {
+            inference.generateResponse(buildPrompt(systemPrompt, prompt))
+        }
+        // Emit word by word with a short delay for visual streaming effect
+        val words = full.split(Regex("(?<=\\s)|(?=\\s)"))
+        for (word in words) {
+            emit(word)
+            if (word.isNotBlank()) kotlinx.coroutines.delay(18L)
+        }
+    }
 
     suspend fun generate(prompt: String, systemPrompt: String = "", maxTokens: Int = 1024): Result<String> =
         withContext(Dispatchers.IO) {
