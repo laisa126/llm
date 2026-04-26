@@ -40,7 +40,6 @@ class LLMRepository(private val context: Context) {
                 val options = LlmInference.LlmInferenceOptions.builder()
                     .setModelPath(modelFile.absolutePath)
                     .setMaxTokens(4096)
-                    .setNumDecode(512)
                     .build()
                 llmInference = LlmInference.createFromOptions(context, options)
                 currentModelId = modelId
