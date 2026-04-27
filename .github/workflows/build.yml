@@ -105,8 +105,6 @@ jobs:
 
           if [ -z "${{ secrets.HF_TOKEN }}" ]; then
             echo "⚠ HF_TOKEN secret not set — skipping bundled model"
-            echo "  App will build without bundled model."
-            echo "  Users will need to download manually from Models tab."
             exit 0
           fi
 
@@ -122,17 +120,32 @@ jobs:
             --progress-bar \
             "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task")
 
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Download failed with HTTP $HTTP_CODE"
-            echo "   Check that HF_TOKEN is valid and you have accepted the Gemma license"
-            echo "   at https://huggingface.co/google/gemma"
+          if [ "$HTTP_CODE" = "403" ]; then
+            echo "⚠ HTTP 403 — Gemma license not yet accepted."
+            echo "  1. Log in at huggingface.co"
+            echo "  2. Go to: huggingface.co/google/gemma-3-1b-it"
+            echo "  3. Click 'Acknowledge license' then re-run this workflow."
+            echo "  Building APK without bundled model for now."
             rm -f "$DEST/$MODEL"
-            exit 1
+            exit 0
+          fi
+
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "⚠ HTTP 401 — HF_TOKEN is invalid or expired."
+            echo "  Generate a new token at huggingface.co/settings/tokens"
+            echo "  Building APK without bundled model for now."
+            rm -f "$DEST/$MODEL"
+            exit 0
+          fi
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠ Download failed with HTTP $HTTP_CODE — building without bundled model."
+            rm -f "$DEST/$MODEL"
+            exit 0
           fi
 
           SIZE=$(du -sh "$DEST/$MODEL" | cut -f1)
-          echo "✅ Model downloaded: $SIZE"
-          echo "   Path: $DEST/$MODEL"
+          echo "✅ Model bundled: $SIZE at $DEST/$MODEL"
 
       - name: Build APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
