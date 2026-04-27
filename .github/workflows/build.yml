@@ -104,48 +104,73 @@ jobs:
           mkdir -p "$DEST"
 
           if [ -z "${{ secrets.HF_TOKEN }}" ]; then
-            echo "⚠ HF_TOKEN secret not set — skipping bundled model"
+            echo "⚠ HF_TOKEN not set — building without bundled model"
             exit 0
           fi
 
-          echo "⬇ Downloading Gemma 3 1B from HuggingFace…"
+          TOKEN="${{ secrets.HF_TOKEN }}"
+
+          # Verify token works
+          WHOAMI=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://huggingface.co/api/whoami")
+          echo "Token check: HTTP $WHOAMI"
+
+          if [ "$WHOAMI" != "200" ]; then
+            echo "⚠ Token invalid (HTTP $WHOAMI) — building without bundled model"
+            exit 0
+          fi
+
+          echo "⬇ Downloading Gemma 3 1B…"
+
+          # Try litert-community first
           HTTP_CODE=$(curl -L \
-            --header "Authorization: Bearer ${{ secrets.HF_TOKEN }}" \
-            --header "User-Agent: LocalLLM-CI/1.0" \
-            --output "$DEST/$MODEL" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "User-Agent: LocalLLM-CI/1.0" \
+            --output "$DEST/$MODEL.tmp" \
             --write-out "%{http_code}" \
-            --show-error \
-            --retry 3 \
-            --retry-delay 5 \
+            --retry 3 --retry-delay 10 \
+            --max-time 1800 \
             --progress-bar \
             "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task")
 
+          echo "litert-community: HTTP $HTTP_CODE"
+
+          # If 403, try google/gemma-3-1b-it directly
           if [ "$HTTP_CODE" = "403" ]; then
-            echo "⚠ HTTP 403 — Gemma license not yet accepted."
-            echo "  1. Log in at huggingface.co"
-            echo "  2. Go to: huggingface.co/google/gemma-3-1b-it"
-            echo "  3. Click 'Acknowledge license' then re-run this workflow."
-            echo "  Building APK without bundled model for now."
-            rm -f "$DEST/$MODEL"
-            exit 0
+            echo "litert-community gated — trying google/gemma-3-1b-it…"
+            HTTP_CODE=$(curl -L \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "User-Agent: LocalLLM-CI/1.0" \
+              --output "$DEST/$MODEL.tmp" \
+              --write-out "%{http_code}" \
+              --retry 3 --retry-delay 10 \
+              --max-time 1800 \
+              --progress-bar \
+              "https://huggingface.co/google/gemma-3-1b-it/resolve/main/gemma3-1b-it-int4.task")
+            echo "google/gemma-3-1b-it: HTTP $HTTP_CODE"
           fi
 
-          if [ "$HTTP_CODE" = "401" ]; then
-            echo "⚠ HTTP 401 — HF_TOKEN is invalid or expired."
-            echo "  Generate a new token at huggingface.co/settings/tokens"
-            echo "  Building APK without bundled model for now."
-            rm -f "$DEST/$MODEL"
-            exit 0
+          # Check file size — a real model is 600MB+, error pages are <100KB
+          if [ "$HTTP_CODE" = "200" ]; then
+            FILE_SIZE=$(stat -c%s "$DEST/$MODEL.tmp" 2>/dev/null || echo "0")
+            echo "Downloaded: $FILE_SIZE bytes"
+            if [ "$FILE_SIZE" -gt 104857600 ]; then
+              mv "$DEST/$MODEL.tmp" "$DEST/$MODEL"
+              SIZE=$(du -sh "$DEST/$MODEL" | cut -f1)
+              echo "✅ Model bundled: $SIZE"
+            else
+              echo "⚠ File too small ($FILE_SIZE bytes) — likely an error page, not the model"
+              rm -f "$DEST/$MODEL.tmp"
+              echo "  Accept license at: huggingface.co/litert-community/Gemma3-1B-IT"
+              echo "  AND at: huggingface.co/google/gemma-3-1b-it"
+              echo "  Building without bundled model."
+            fi
+          else
+            rm -f "$DEST/$MODEL.tmp"
+            echo "⚠ HTTP $HTTP_CODE — building without bundled model"
+            echo "  Accept license at: huggingface.co/litert-community/Gemma3-1B-IT"
           fi
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "⚠ Download failed with HTTP $HTTP_CODE — building without bundled model."
-            rm -f "$DEST/$MODEL"
-            exit 0
-          fi
-
-          SIZE=$(du -sh "$DEST/$MODEL" | cut -f1)
-          echo "✅ Model bundled: $SIZE at $DEST/$MODEL"
 
       - name: Build APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
