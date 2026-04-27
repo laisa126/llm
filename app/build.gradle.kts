@@ -34,6 +34,9 @@ android {
         debug { applicationIdSuffix = ".debug"; versionNameSuffix = "-debug" }
     }
     buildFeatures { compose = true; buildConfig = true }
+    // Prevent Gradle from compressing the .task model file — it's already binary
+    // and compression would make it unreadable directly from assets
+    androidResources { noCompress += listOf("task", "bin", "tflite") }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

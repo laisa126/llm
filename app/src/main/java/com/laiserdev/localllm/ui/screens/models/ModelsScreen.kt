@@ -101,6 +101,18 @@ fun ModelCard(
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(model.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        if (model.id == com.laiserdev.localllm.data.repository.ModelBootstrap.BUNDLED_MODEL_ID) {
+                            Spacer(Modifier.width(6.dp))
+                            Box(
+                                Modifier
+                                    .background(Color(0xFF0D2A1A), RoundedCornerShape(4.dp))
+                                    .border(0.5.dp, AccentGreen.copy(0.4f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("Built-in", color = AccentGreen, fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold)
+                            }
+                        }
                         if (model.status == ModelStatus.LOADED) {
                             Spacer(Modifier.width(8.dp))
                             Box(Modifier.background(Color(0xFF1A3A2A), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {

@@ -9,7 +9,8 @@ import com.laiserdev.localllm.LocalLLMApp
 import com.laiserdev.localllm.data.model.*
 import com.laiserdev.localllm.data.repository.ChatHistoryRepository
 import com.laiserdev.localllm.data.repository.ChatSession
-import com.laiserdev.localllm.data.repository.ModelDownloadService
+import com.laiserdev.localllm.data.repository.ModelBootstrap
+import com.laiserdev.localllm.ui.screens.bootstrap.BootstrapPhase
 import com.laiserdev.localllm.server.LLMServerService
 import com.laiserdev.localllm.ui.screens.chat.AgentStep
 import com.laiserdev.localllm.ui.screens.chat.StepStatus
@@ -104,6 +105,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadSkills()
         observeDownloadProgress()
         restoreLastSession()
+        runBootstrap()
+    }
+
+    fun runBootstrap() {
+        viewModelScope.launch {
+            _bootstrapPhase.value = BootstrapPhase.CHECKING
+
+            val bundled = ModelBootstrap.isBundled(getApplication())
+
+            if (!bundled) {
+                // No bundled model in APK — go straight to app, user can download manually
+                _bootstrapDone.value = true
+                return@launch
+            }
+
+            if (!ModelBootstrap.isExtracted(getApplication())) {
+                // Need to extract from assets → filesDir
+                _bootstrapPhase.value = BootstrapPhase.EXTRACTING
+                try {
+                    ModelBootstrap.extract(getApplication()).collect { progress ->
+                        _bootstrapProgress.value = progress
+                    }
+                } catch (e: Exception) {
+                    _bootstrapPhase.value = BootstrapPhase.ERROR
+                    _bootstrapDone.value = true
+                    return@launch
+                }
+            }
+
+            // Load the bundled model automatically
+            _bootstrapPhase.value = BootstrapPhase.LOADING
+            val result = app.llmRepository.loadModel(
+                ModelBootstrap.BUNDLED_MODEL_ID,
+                ModelBootstrap.BUNDLED_MODEL_FILE
+            )
+            if (result.isSuccess) {
+                // Mark it as loaded in model list
+                _models.update { models ->
+                    models.map {
+                        if (it.id == ModelBootstrap.BUNDLED_MODEL_ID)
+                            it.copy(status = com.laiserdev.localllm.data.model.ModelStatus.LOADED)
+                        else it
+                    }
+                }
+                app.settingsManager.setActiveModel(ModelBootstrap.BUNDLED_MODEL_ID)
+            }
+
+            _bootstrapPhase.value = BootstrapPhase.DONE
+            kotlinx.coroutines.delay(1200) // Show "Ready!" for a moment
+            _bootstrapDone.value = true
+        }
     }
 
     private fun restoreLastSession() {
@@ -133,6 +185,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             refreshChatSessions()
         }
     }
+
+    // ─── Bootstrap ────────────────────────────────────────────────────────────
+
+    private val _bootstrapPhase    = MutableStateFlow(BootstrapPhase.CHECKING)
+    val bootstrapPhase: StateFlow<BootstrapPhase> = _bootstrapPhase.asStateFlow()
+
+    private val _bootstrapProgress = MutableStateFlow(0f)
+    val bootstrapProgress: StateFlow<Float> = _bootstrapProgress.asStateFlow()
+
+    private val _bootstrapDone     = MutableStateFlow(false)
+    val bootstrapDone: StateFlow<Boolean> = _bootstrapDone.asStateFlow()
 
     // ─── Onboarding ───────────────────────────────────────────────────────────
 

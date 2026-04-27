@@ -97,6 +97,43 @@ jobs:
             echo "KEY_PASSWORD=debugpass"      >> $GITHUB_ENV
           fi
 
+      - name: Download bundled model (Gemma 3 1B)
+        run: |
+          DEST="app/src/main/assets/models"
+          MODEL="gemma3-1b-int4.task"
+          mkdir -p "$DEST"
+
+          if [ -z "${{ secrets.HF_TOKEN }}" ]; then
+            echo "⚠ HF_TOKEN secret not set — skipping bundled model"
+            echo "  App will build without bundled model."
+            echo "  Users will need to download manually from Models tab."
+            exit 0
+          fi
+
+          echo "⬇ Downloading Gemma 3 1B from HuggingFace…"
+          HTTP_CODE=$(curl -L \
+            --header "Authorization: Bearer ${{ secrets.HF_TOKEN }}" \
+            --header "User-Agent: LocalLLM-CI/1.0" \
+            --output "$DEST/$MODEL" \
+            --write-out "%{http_code}" \
+            --show-error \
+            --retry 3 \
+            --retry-delay 5 \
+            --progress-bar \
+            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task")
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Download failed with HTTP $HTTP_CODE"
+            echo "   Check that HF_TOKEN is valid and you have accepted the Gemma license"
+            echo "   at https://huggingface.co/google/gemma"
+            rm -f "$DEST/$MODEL"
+            exit 1
+          fi
+
+          SIZE=$(du -sh "$DEST/$MODEL" | cut -f1)
+          echo "✅ Model downloaded: $SIZE"
+          echo "   Path: $DEST/$MODEL"
+
       - name: Build APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
         env:
@@ -141,7 +178,13 @@ jobs:
           generate_release_notes: true
           body: |
             ## 🤖 LocalLLM v${{ needs.build.outputs.version_name }}
-            Local AI coding assistant — Gemma 4 on-device, fully offline.
+            Local AI coding assistant — Gemma 3 1B built-in, fully offline.
+
+            **This APK includes Gemma 3 1B (~700MB) — no downloads needed after install.**
+
             **Install:** Download APK → Settings → Unknown Sources → Install
+            **First launch:** Shows a one-time setup screen (~30s) then ready to use.
+
+            Features: Agent mode · Code editor · Terminal · HTML Preview · Local API
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
