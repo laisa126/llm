@@ -18,7 +18,7 @@ import com.laiserdev.localllm.ui.MainViewModel
 import com.laiserdev.localllm.ui.theme.*
 
 @Composable
-fun SettingsScreen(vm: MainViewModel) {
+fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val settings by vm.settings.collectAsState()
     var systemPrompt by remember(settings.systemPrompt) { mutableStateOf(settings.systemPrompt) }
     var temperature by remember(settings.temperature) { mutableFloatStateOf(settings.temperature) }
@@ -26,13 +26,7 @@ fun SettingsScreen(vm: MainViewModel) {
     var fontSize by remember(settings.fontSize) { mutableIntStateOf(settings.fontSize) }
 
     Column(Modifier.fillMaxSize().background(BgDeep).verticalScroll(rememberScrollState())) {
-        // Header
-        Column(Modifier.fillMaxWidth().background(BgSurface).padding(16.dp)) {
-            Text("Settings", style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary, fontWeight = FontWeight.Bold)
-        }
-        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
-
+        com.laiserdev.localllm.ui.AppTopBar("Settings", onOpenDrawer)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
             SettingSection("Model") {

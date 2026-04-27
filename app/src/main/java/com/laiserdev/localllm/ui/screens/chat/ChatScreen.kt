@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -22,170 +23,230 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
 import coil.compose.AsyncImage
 import com.laiserdev.localllm.data.model.ChatMessage
 import com.laiserdev.localllm.data.model.MessageRole
 import com.laiserdev.localllm.data.model.Skill
 import com.laiserdev.localllm.ui.MainViewModel
-import com.laiserdev.localllm.ui.screens.chat.StepStatus
 import com.laiserdev.localllm.ui.theme.*
 
 @Composable
-fun ChatScreen(vm: MainViewModel) {
-    val messages by vm.messages.collectAsState()
-    val isGenerating by vm.isGenerating.collectAsState()
+fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
+    val messages       by vm.messages.collectAsState()
+    val isGenerating   by vm.isGenerating.collectAsState()
     val isAgentRunning by vm.isAgentRunning.collectAsState()
-    val selectedImage by vm.selectedImageUri.collectAsState()
-    val skills by vm.skills.collectAsState()
-    val activeProject by vm.activeProject.collectAsState()
-    val agentSteps by vm.agentSteps.collectAsState()
-    val agentThinking by vm.agentThinking.collectAsState()
-    val chatSessions by vm.chatSessions.collectAsState()
+    val selectedImage  by vm.selectedImageUri.collectAsState()
+    val skills         by vm.skills.collectAsState()
+    val activeProject  by vm.activeProject.collectAsState()
+    val agentSteps     by vm.agentSteps.collectAsState()
+    val agentThinking  by vm.agentThinking.collectAsState()
+    val chatSessions   by vm.chatSessions.collectAsState()
+    val settings       by vm.settings.collectAsState()
+    val models         by vm.models.collectAsState()
+
     val listState = rememberLazyListState()
-    var inputText by remember { mutableStateOf("") }
-    var agentMode by remember { mutableStateOf(false) }
-    var showSkills by remember { mutableStateOf(false) }
-    var showHistory by remember { mutableStateOf(false) }
+    var inputText     by remember { mutableStateOf("") }
+    var agentMode     by remember { mutableStateOf(false) }
+    var showSkills    by remember { mutableStateOf(false) }
+    var showHistory   by remember { mutableStateOf(false) }
     var selectedSkill by remember { mutableStateOf<Skill?>(null) }
+
+    val loadedModelName = remember(settings, models) {
+        models.firstOrNull { it.id == settings.activeModelId && it.status.name == "LOADED" }?.name
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? -> vm.setSelectedImage(uri) }
 
-    // Auto-scroll when new steps or messages arrive
+    // Auto-scroll
     val totalItems = messages.size + agentSteps.size
     LaunchedEffect(totalItems) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(
-            (messages.size + agentSteps.size + 1).coerceAtLeast(0)
-        )
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem((messages.size + agentSteps.size + 1).coerceAtLeast(0))
+        }
     }
 
     Column(Modifier.fillMaxSize().background(BgDeep)) {
 
-        // ── Top bar ────────────────────────────────────────────────────────────
+        // ── Claude-style top bar ───────────────────────────────────────────────
         Row(
-            Modifier.fillMaxWidth().background(BgSurface)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A0F0A))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text("LocalLLM", style = MaterialTheme.typography.titleMedium, color = AccentGreen,
-                    fontWeight = FontWeight.Bold)
-                if (activeProject != null) {
-                    Text(activeProject!!.name, style = MaterialTheme.typography.bodySmall, color = TextSecond)
+            // Hamburger menu
+            IconButton(onClick = onOpenDrawer, Modifier.size(40.dp)) {
+                Icon(Icons.Default.Menu, "Open menu", Modifier.size(22.dp), tint = TextSecond)
+            }
+
+            Spacer(Modifier.width(2.dp))
+
+            // Model selector pill (center)
+            Row(
+                Modifier
+                    .weight(1f)
+                    .background(Color(0xFF141814), RoundedCornerShape(20.dp))
+                    .border(0.5.dp, BgBorder, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    Modifier
+                        .size(6.dp)
+                        .background(
+                            if (loadedModelName != null) AccentGreen else TextMuted,
+                            CircleShape
+                        )
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    loadedModelName ?: "No model loaded",
+                    color = if (loadedModelName != null) TextPrimary else TextMuted,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(Icons.Default.KeyboardArrowDown, null, Modifier.size(14.dp), tint = TextMuted)
+            }
+
+            Spacer(Modifier.width(4.dp))
+
+            // Agent toggle
+            Box(
+                Modifier
+                    .background(
+                        if (agentMode) Color(0xFF1A3A2A) else Color(0xFF141814),
+                        RoundedCornerShape(20.dp)
+                    )
+                    .border(
+                        0.5.dp,
+                        if (agentMode) AccentGreen.copy(0.4f) else BgBorder,
+                        RoundedCornerShape(20.dp)
+                    )
+                    .clickable { agentMode = !agentMode }
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.SmartToy, null,
+                        Modifier.size(14.dp),
+                        tint = if (agentMode) AccentGreen else TextMuted
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Agent",
+                        fontSize = 12.sp,
+                        color = if (agentMode) AccentGreen else TextMuted,
+                        fontWeight = if (agentMode) FontWeight.SemiBold else FontWeight.Normal
+                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Agent mode toggle
-                FilterChip(
-                    selected = agentMode,
-                    onClick = { agentMode = !agentMode },
-                    label = { Text("Agent", fontSize = 11.sp) },
-                    leadingIcon = { Icon(Icons.Default.SmartToy, null, Modifier.size(14.dp)) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF1A3A2A),
-                        selectedLabelColor = AccentGreen,
-                        selectedLeadingIconColor = AccentGreen
-                    )
-                )
-                IconButton(onClick = { showSkills = true }, Modifier.size(36.dp)) {
-                    Icon(Icons.Default.AutoAwesome, "Skills", tint = AccentBlue, modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = { vm.refreshChatSessions(); showHistory = true }, Modifier.size(36.dp)) {
-                    Icon(Icons.Default.History, "History", tint = TextSecond, modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = { vm.clearChat() }, Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Delete, "Clear", tint = TextSecond, modifier = Modifier.size(20.dp))
-                }
+
+            // New chat button
+            IconButton(onClick = { vm.clearChat() }, Modifier.size(40.dp)) {
+                Icon(Icons.Default.EditNote, "New chat", Modifier.size(22.dp), tint = TextSecond)
             }
         }
 
-        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
-
-        // ── Agent mode banner ──────────────────────────────────────────────────
+        // ── Agent banner ───────────────────────────────────────────────────────
         AnimatedVisibility(
             visible = agentMode,
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut()
         ) {
             Row(
-                Modifier.fillMaxWidth().background(Color(0xFF0D1F17))
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                Modifier.fillMaxWidth()
+                    .background(Color(0xFF0D1F0D))
+                    .padding(horizontal = 16.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.SmartToy, null, Modifier.size(13.dp), tint = AccentGreen)
-                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Default.SmartToy, null, Modifier.size(12.dp), tint = AccentGreen)
+                Spacer(Modifier.width(7.dp))
                 Text(
-                    if (activeProject != null) "Agent will build inside: ${activeProject!!.name}"
-                    else "⚠ Open a project in Editor first to use Agent mode",
+                    if (activeProject != null) "Agent mode · ${activeProject!!.name}"
+                    else "⚠ Open a project in Editor before using agent",
                     color = if (activeProject != null) AccentGreen else WarnYellow,
                     fontSize = 11.sp
                 )
             }
         }
 
+        HorizontalDivider(color = BgBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
+
         // ── Messages ───────────────────────────────────────────────────────────
         if (messages.isEmpty() && agentSteps.isEmpty()) {
-            EmptyState(onSkillsClick = { showSkills = true }, onSuggestion = { inputText = it })
+            EmptyState(
+                modelName = loadedModelName,
+                onSkillsClick = { showSkills = true },
+                onSuggestion = { inputText = it }
+            )
         } else {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 items(messages, key = { it.id }) { msg ->
                     MessageBubble(msg)
                 }
 
-                // Agent steps shown below last message while agent is running
+                // Live agent steps
                 if (isAgentRunning && (agentSteps.isNotEmpty() || agentThinking != null)) {
                     item(key = "agent_steps") {
                         Column(
                             Modifier
                                 .fillMaxWidth()
-                                .background(BgSurface, RoundedCornerShape(10.dp))
-                                .border(0.5.dp, BgBorder, RoundedCornerShape(10.dp))
-                                .padding(10.dp),
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .background(BgSurface, RoundedCornerShape(12.dp))
+                                .border(0.5.dp, BgBorder, RoundedCornerShape(12.dp))
+                                .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Row(
-                                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                                Modifier.fillMaxWidth().padding(bottom = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.SmartToy, null, Modifier.size(13.dp), tint = AccentGreen)
+                                    Icon(Icons.Default.SmartToy, null, Modifier.size(12.dp), tint = AccentGreen)
                                     Spacer(Modifier.width(5.dp))
-                                    Text("Agent Working", color = AccentGreen, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Text("Agent working", color = AccentGreen, fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium)
                                 }
                                 Text("${agentSteps.size} steps", color = TextMuted, fontSize = 10.sp)
                             }
-                            AgentStepsPanel(
-                                steps = agentSteps,
-                                thinking = agentThinking
-                            )
+                            AgentStepsPanel(steps = agentSteps, thinking = agentThinking)
                         }
                     }
                 }
 
-                // After agent finishes, show a compact summary
                 if (!isAgentRunning && agentSteps.isNotEmpty()) {
                     item(key = "agent_summary") {
-                        AgentSummaryRow(agentSteps)
+                        Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            AgentSummaryRow(agentSteps)
+                        }
                     }
                 }
             }
         }
 
-        // ── Selected image preview ─────────────────────────────────────────────
+        // ── Image attachment preview ───────────────────────────────────────────
         AnimatedVisibility(selectedImage != null) {
-            Row(Modifier.fillMaxWidth().background(BgSurface).padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().background(BgSurface)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 AsyncImage(
                     model = selectedImage, contentDescription = null,
-                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)),
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
                     contentScale = ContentScale.Crop
                 )
                 Spacer(Modifier.width(8.dp))
@@ -196,123 +257,180 @@ fun ChatScreen(vm: MainViewModel) {
             }
         }
 
-        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
-
-        // ── Input bar ──────────────────────────────────────────────────────────
-        Row(
-            Modifier.fillMaxWidth().background(BgSurface).padding(8.dp),
-            verticalAlignment = Alignment.Bottom
+        // ── Input area ─────────────────────────────────────────────────────────
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A0F0A))
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            IconButton(onClick = { imagePickerLauncher.launch("image/*") }, Modifier.size(40.dp)) {
-                Icon(Icons.Default.Image, "Image", tint = TextSecond, modifier = Modifier.size(20.dp))
-            }
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                placeholder = {
-                    Text(
-                        if (agentMode) "Ask agent to build something..." else "Message LocalLLM...",
-                        color = TextMuted, fontSize = 13.sp
-                    )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentGreen,
-                    unfocusedBorderColor = BgBorder,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    cursorColor = AccentGreen,
-                    focusedContainerColor = BgElevated,
-                    unfocusedContainerColor = BgElevated
-                ),
-                shape = RoundedCornerShape(12.dp),
-                maxLines = 5,
-                textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-            )
-            val busy = isGenerating || isAgentRunning
-            IconButton(
-                onClick = {
-                    if (inputText.isBlank()) return@IconButton
-                    val text = inputText.trim()
-                    inputText = ""
-                    if (agentMode && activeProject != null) vm.runAgent(text)
-                    else vm.sendMessage(text, vm.selectedImageUri.value)
-                },
-                modifier = Modifier.size(40.dp)
-                    .background(if (busy) BgElevated else AccentGreen, CircleShape),
-                enabled = inputText.isNotBlank() && !busy
+            // Text field — Claude-style: full-width, rounded, dark
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF141814), RoundedCornerShape(16.dp))
+                    .border(0.5.dp, BgBorder, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
-                if (busy) {
-                    CircularProgressIndicator(Modifier.size(18.dp), color = AccentGreen, strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Default.Send, "Send", tint = BgDeep, modifier = Modifier.size(18.dp))
+                // Attachment button
+                IconButton(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.Default.AttachFile, null, Modifier.size(18.dp), tint = TextMuted)
                 }
+
+                // Input field
+                BasicTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp
+                    ),
+                    cursorBrush = SolidColor(AccentGreen),
+                    maxLines = 6,
+                    decorationBox = { inner ->
+                        if (inputText.isEmpty()) {
+                            Text(
+                                if (agentMode) "Ask agent to build something…"
+                                else "Message LocalLLM…",
+                                color = TextMuted,
+                                fontSize = 15.sp
+                            )
+                        }
+                        inner()
+                    }
+                )
+
+                // Skills / history actions
+                IconButton(
+                    onClick = { showSkills = true },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(17.dp), tint = TextMuted)
+                }
+
+                // Send / stop button — Claude style
+                val busy = isGenerating || isAgentRunning
+                Box(
+                    Modifier
+                        .padding(end = 4.dp, bottom = 4.dp)
+                        .size(34.dp)
+                        .background(
+                            if (inputText.isNotBlank() && !busy) AccentGreen
+                            else if (busy) Color(0xFF1A1A1A)
+                            else Color(0xFF1A1A1A),
+                            RoundedCornerShape(10.dp)
+                        )
+                        .border(
+                            0.5.dp,
+                            if (busy) AccentGreen.copy(0.3f) else Color.Transparent,
+                            RoundedCornerShape(10.dp)
+                        )
+                        .clickable(enabled = inputText.isNotBlank() || busy) {
+                            if (busy) {
+                                vm.stopGeneration()
+                            } else {
+                                val text = inputText.trim()
+                                inputText = ""
+                                if (agentMode && activeProject != null) vm.runAgent(text)
+                                else vm.sendMessage(text, vm.selectedImageUri.value)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (busy) {
+                        Icon(Icons.Default.Stop, null, Modifier.size(16.dp), tint = AccentGreen)
+                    } else {
+                        Icon(
+                            Icons.Default.ArrowUpward, null,
+                            Modifier.size(17.dp),
+                            tint = if (inputText.isNotBlank()) BgDeep else TextMuted
+                        )
+                    }
+                }
+            }
+
+            // Bottom row: history + disclaimer
+            Row(
+                Modifier.fillMaxWidth().padding(top = 6.dp, start = 4.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { vm.refreshChatSessions(); showHistory = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(Icons.Default.History, null, Modifier.size(15.dp), tint = TextMuted)
+                }
+                Spacer(Modifier.width(2.dp))
+                Text(
+                    "Chat history",
+                    color = TextMuted, fontSize = 11.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    "Runs 100% on device",
+                    color = TextMuted, fontSize = 10.sp
+                )
             }
         }
     }
 
-    // ── Chat History sheet ─────────────────────────────────────────────────────
+    // ── Sheets ────────────────────────────────────────────────────────────────
     if (showHistory) {
         ChatHistorySheet(
             sessions = chatSessions,
-            onLoad = { fileName -> vm.loadChatSession(fileName) },
-            onDelete = { fileName -> vm.deleteChatSession(fileName) },
+            onLoad = { vm.loadChatSession(it) },
+            onDelete = { vm.deleteChatSession(it) },
             onDismiss = { showHistory = false }
         )
     }
-
-    // ── Skills bottom sheet ────────────────────────────────────────────────────
     if (showSkills) {
         SkillsSheet(
             skills = skills,
-            onSelect = { skill ->
-                showSkills = false
-                selectedSkill = skill
-            },
+            onSelect = { showSkills = false; selectedSkill = it },
             onDismiss = { showSkills = false }
         )
     }
-
     selectedSkill?.let { skill ->
         SkillVariablesDialog(
             skill = skill,
             extractVars = { vm.skills.value },
             skillsManager = null,
-            onConfirm = { vars ->
-                selectedSkill = null
-                vm.applySkill(skill, vars)
-            },
+            onConfirm = { vars -> selectedSkill = null; vm.applySkill(skill, vars) },
             onDismiss = { selectedSkill = null }
         )
     }
 }
 
+// ── Claude-style message bubbles ──────────────────────────────────────────────
+
 @Composable
 fun AgentSummaryRow(steps: List<AgentStep>) {
     val successCount = steps.count { it.status == StepStatus.SUCCESS }
-    val errorCount = steps.count { it.status == StepStatus.ERROR }
+    val errorCount   = steps.count { it.status == StepStatus.ERROR }
     var expanded by remember { mutableStateOf(false) }
-
     Column(
-        Modifier
-            .fillMaxWidth()
+        Modifier.fillMaxWidth()
             .background(BgSurface, RoundedCornerShape(8.dp))
             .border(0.5.dp, BgBorder, RoundedCornerShape(8.dp))
     ) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
+            Modifier.fillMaxWidth().clickable { expanded = !expanded }
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(Icons.Default.CheckCircle, null, Modifier.size(13.dp), tint = AccentGreen)
             Spacer(Modifier.width(6.dp))
             Text(
-                "Agent completed · $successCount tools used" + if (errorCount > 0) " · $errorCount errors" else "",
+                "Agent completed · $successCount tools" +
+                        if (errorCount > 0) " · $errorCount errors" else "",
                 color = if (errorCount > 0) WarnYellow else AccentGreen,
-                fontSize = 12.sp,
-                modifier = Modifier.weight(1f)
+                fontSize = 12.sp, modifier = Modifier.weight(1f)
             )
             Icon(
                 if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -320,11 +438,9 @@ fun AgentSummaryRow(steps: List<AgentStep>) {
             )
         }
         AnimatedVisibility(visible = expanded) {
-            Column(
-                Modifier.padding(horizontal = 10.dp).padding(bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                steps.forEach { step -> AgentStepCard(step) }
+            Column(Modifier.padding(horizontal = 10.dp).padding(bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                steps.forEach { AgentStepCard(it) }
             }
         }
     }
@@ -333,52 +449,62 @@ fun AgentSummaryRow(steps: List<AgentStep>) {
 @Composable
 fun MessageBubble(msg: ChatMessage) {
     val isUser = msg.role == MessageRole.USER
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-    ) {
-        if (!isUser) {
-            Box(
-                Modifier.size(28.dp).background(AccentGreen, CircleShape),
-                contentAlignment = Alignment.Center
-            ) { Text("AI", fontSize = 10.sp, color = BgDeep, fontWeight = FontWeight.Bold) }
-            Spacer(Modifier.width(6.dp))
-        }
-        Column(
-            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-            modifier = Modifier.widthIn(max = 300.dp)
+
+    if (isUser) {
+        // User message — right aligned, green-tinted bubble like Claude
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End
         ) {
-            if (isUser) {
-                // User bubble — simple
-                Box(
-                    Modifier
-                        .background(Color(0xFF1A3A2A), RoundedCornerShape(12.dp, 4.dp, 12.dp, 12.dp))
-                        .border(0.5.dp, BgBorder, RoundedCornerShape(12.dp, 4.dp, 12.dp, 12.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    if (msg.imageUri != null) {
+            Box(
+                Modifier
+                    .widthIn(max = 280.dp)
+                    .background(Color(0xFF1A3A2A), RoundedCornerShape(18.dp, 4.dp, 18.dp, 18.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                if (msg.imageUri != null) {
+                    Column {
                         AsyncImage(
                             model = msg.imageUri, contentDescription = null,
-                            modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(8.dp)),
+                            modifier = Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(10.dp)),
                             contentScale = ContentScale.Crop
                         )
-                        if (msg.content.isNotBlank()) Spacer(Modifier.height(6.dp))
+                        if (msg.content.isNotBlank()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(msg.content, color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp)
+                        }
                     }
-                    if (msg.content.isNotBlank()) {
-                        Text(msg.content, color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp)
-                    }
+                } else {
+                    Text(msg.content, color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp)
                 }
-            } else {
-                // Assistant bubble — parse code blocks
-                AssistantContent(msg)
             }
-
-            if (msg.tokensPerSecond > 0) {
-                Text(
-                    "${"%.1f".format(msg.tokensPerSecond)} tok/s",
-                    color = TextMuted, fontSize = 10.sp,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+        }
+    } else {
+        // Assistant message — left aligned, full width, no bubble — just like Claude
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            // AI avatar
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .background(Color(0xFF1A3A2A), CircleShape)
+                    .border(0.5.dp, AccentGreen.copy(0.3f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Memory, null, Modifier.size(14.dp), tint = AccentGreen)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                AssistantContent(msg)
+                if (msg.tokensPerSecond > 0f && !msg.isStreaming) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${"%.1f".format(msg.tokensPerSecond)} tok/s",
+                        color = TextMuted, fontSize = 10.sp
+                    )
+                }
             }
         }
     }
@@ -387,28 +513,24 @@ fun MessageBubble(msg: ChatMessage) {
 @Composable
 fun AssistantContent(msg: ChatMessage) {
     val segments = remember(msg.content) { parseMessageSegments(msg.content) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         segments.forEach { seg ->
             when (seg) {
                 is MessageSegment.Text -> {
                     if (seg.text.isNotBlank()) {
-                        Box(
-                            Modifier
-                                .background(BgSurface, RoundedCornerShape(4.dp, 12.dp, 12.dp, 12.dp))
-                                .border(0.5.dp, BgBorder, RoundedCornerShape(4.dp, 12.dp, 12.dp, 12.dp))
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Text(seg.text.trim(), color = TextPrimary, fontSize = 14.sp, lineHeight = 20.sp)
-                        }
+                        Text(
+                            seg.text.trim(),
+                            color = TextPrimary,
+                            fontSize = 15.sp,
+                            lineHeight = 23.sp
+                        )
                     }
                 }
-                is MessageSegment.Code -> {
-                    CodeBlock(language = seg.language, code = seg.code)
-                }
+                is MessageSegment.Code -> CodeBlock(language = seg.language, code = seg.code)
             }
         }
         if (msg.isStreaming) {
-            Text("▋", color = AccentGreen, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+            Text("▋", color = AccentGreen, fontSize = 15.sp)
         }
     }
 }
@@ -419,61 +541,49 @@ fun CodeBlock(language: String, code: String) {
     var copied by remember { mutableStateOf(false) }
 
     Column(
-        Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0D1117), RoundedCornerShape(8.dp))
-            .border(0.5.dp, BgBorder, RoundedCornerShape(8.dp))
+        Modifier.fillMaxWidth()
+            .background(Color(0xFF0D1117), RoundedCornerShape(10.dp))
+            .border(0.5.dp, BgBorder, RoundedCornerShape(10.dp))
     ) {
-        // Header bar
         Row(
-            Modifier
-                .fillMaxWidth()
-                .background(BgElevated, RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+            Modifier.fillMaxWidth()
+                .background(BgElevated, RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                language.ifBlank { "code" }.lowercase(),
-                color = TextMuted,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace
-            )
-            IconButton(
-                onClick = {
-                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(code))
-                    copied = true
-                },
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                    null,
-                    Modifier.size(14.dp),
-                    tint = if (copied) AccentGreen else TextMuted
-                )
+            Text(language.ifBlank { "code" }.lowercase(), color = TextMuted, fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (copied) Text("Copied!", color = AccentGreen, fontSize = 10.sp)
+                Spacer(Modifier.width(4.dp))
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(code))
+                        copied = true
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                        null, Modifier.size(14.dp),
+                        tint = if (copied) AccentGreen else TextMuted
+                    )
+                }
             }
         }
-        // Code content
         Text(
-            text = code.trimEnd(),
+            code.trimEnd(),
             color = Color(0xFFE6EDF3),
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
+            fontSize = 12.sp, lineHeight = 18.sp,
             fontFamily = FontFamily.Monospace,
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         )
     }
-
-    // Reset "copied" after 2s
     if (copied) {
-        LaunchedEffect(copied) {
-            kotlinx.coroutines.delay(2000)
-            copied = false
-        }
+        LaunchedEffect(Unit) { kotlinx.coroutines.delay(2000); copied = false }
     }
 }
 
@@ -483,51 +593,67 @@ sealed class MessageSegment {
 }
 
 fun parseMessageSegments(content: String): List<MessageSegment> {
-    val segments = mutableListOf<MessageSegment>()
+    val result = mutableListOf<MessageSegment>()
     val regex = Regex("```(\\w*)\\n?([\\s\\S]*?)```")
-    var lastEnd = 0
-    for (match in regex.findAll(content)) {
-        if (match.range.first > lastEnd) {
-            segments += MessageSegment.Text(content.substring(lastEnd, match.range.first))
-        }
-        segments += MessageSegment.Code(
-            language = match.groupValues[1],
-            code = match.groupValues[2]
-        )
-        lastEnd = match.range.last + 1
+    var last = 0
+    for (m in regex.findAll(content)) {
+        if (m.range.first > last) result += MessageSegment.Text(content.substring(last, m.range.first))
+        result += MessageSegment.Code(m.groupValues[1], m.groupValues[2])
+        last = m.range.last + 1
     }
-    if (lastEnd < content.length) {
-        segments += MessageSegment.Text(content.substring(lastEnd))
-    }
-    return segments.ifEmpty { listOf(MessageSegment.Text(content)) }
+    if (last < content.length) result += MessageSegment.Text(content.substring(last))
+    return result.ifEmpty { listOf(MessageSegment.Text(content)) }
 }
 
+// ── Empty state ───────────────────────────────────────────────────────────────
+
 @Composable
-fun EmptyState(onSkillsClick: () -> Unit, onSuggestion: (String) -> Unit = {}) {
+fun EmptyState(
+    modelName: String?,
+    onSkillsClick: () -> Unit,
+    onSuggestion: (String) -> Unit
+) {
     Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 24.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Clean logo — no emoji
+        Spacer(Modifier.height(40.dp))
+
+        // Large avatar
         Box(
-            Modifier
-                .size(56.dp)
-                .background(Color(0xFF1A3A2A), RoundedCornerShape(14.dp)),
+            Modifier.size(64.dp)
+                .background(Color(0xFF1A3A2A), CircleShape)
+                .border(1.dp, AccentGreen.copy(0.25f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Memory, null, Modifier.size(28.dp), tint = AccentGreen)
+            Icon(Icons.Default.Memory, null, Modifier.size(32.dp), tint = AccentGreen)
         }
-        Spacer(Modifier.height(14.dp))
-        Text("LocalLLM", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(3.dp))
-        Text("Local AI coding assistant", color = TextSecond, fontSize = 13.sp)
-        Spacer(Modifier.height(20.dp))
 
-        // Suggestion chips — 2-column grid, actually clickable
+        Spacer(Modifier.height(16.dp))
+        Text("LocalLLM", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+
+        if (modelName != null) {
+            Text("Using $modelName", color = TextSecond, fontSize = 13.sp)
+        } else {
+            Row(
+                Modifier
+                    .background(Color(0xFF1A1000), RoundedCornerShape(8.dp))
+                    .border(0.5.dp, WarnYellow.copy(0.3f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Warning, null, Modifier.size(12.dp), tint = WarnYellow)
+                Spacer(Modifier.width(6.dp))
+                Text("No model loaded · go to Models tab", color = WarnYellow, fontSize = 12.sp)
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+
+        // Suggestion grid
         val suggestions = listOf(
             "Generate a React todo app",
             "Fix a bug in my code",
@@ -536,23 +662,18 @@ fun EmptyState(onSkillsClick: () -> Unit, onSuggestion: (String) -> Unit = {}) {
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             suggestions.chunked(2).forEach { row ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { s ->
                         Box(
-                            Modifier
-                                .weight(1f)
-                                .background(BgElevated, RoundedCornerShape(10.dp))
-                                .border(0.5.dp, BgBorder, RoundedCornerShape(10.dp))
+                            Modifier.weight(1f)
+                                .background(Color(0xFF141814), RoundedCornerShape(12.dp))
+                                .border(0.5.dp, BgBorder, RoundedCornerShape(12.dp))
                                 .clickable { onSuggestion(s) }
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .padding(horizontal = 12.dp, vertical = 12.dp)
                         ) {
-                            Text(s, color = TextSecond, fontSize = 12.sp, lineHeight = 16.sp)
+                            Text(s, color = TextSecond, fontSize = 13.sp, lineHeight = 18.sp)
                         }
                     }
-                    // Pad last row if odd
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
@@ -561,16 +682,21 @@ fun EmptyState(onSkillsClick: () -> Unit, onSuggestion: (String) -> Unit = {}) {
         Spacer(Modifier.height(16.dp))
         OutlinedButton(
             onClick = onSkillsClick,
-            border = BorderStroke(1.dp, AccentGreen),
+            border = BorderStroke(0.5.dp, AccentGreen.copy(0.4f)),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentGreen),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.AutoAwesome, null, Modifier.size(15.dp))
+            Icon(Icons.Default.AutoAwesome, null, Modifier.size(14.dp))
             Spacer(Modifier.width(6.dp))
             Text("Browse Skills", fontSize = 13.sp)
         }
+
+        Spacer(Modifier.height(40.dp))
     }
 }
+
+// ── Skills / skill dialog ─────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -580,12 +706,11 @@ fun SkillsSheet(skills: List<Skill>, onSelect: (Skill) -> Unit, onDismiss: () ->
         containerColor = BgSurface,
         dragHandle = { BottomSheetDefaults.DragHandle(color = BgBorder) }
     ) {
-        Text("Skills", style = MaterialTheme.typography.titleMedium,
-            color = TextPrimary, fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp))
+        Text("Skills", style = MaterialTheme.typography.titleMedium, color = TextPrimary,
+            fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
         Spacer(Modifier.height(12.dp))
         val grouped = skills.groupBy { it.category }
-        LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 40.dp)) {
             grouped.forEach { (cat, catSkills) ->
                 item {
                     Text(cat.uppercase(), color = TextMuted, fontSize = 11.sp,
@@ -593,10 +718,8 @@ fun SkillsSheet(skills: List<Skill>, onSelect: (Skill) -> Unit, onDismiss: () ->
                 }
                 items(catSkills) { skill ->
                     ListItem(
-                        headlineContent = {
-                            Text("${skill.icon} ${skill.name}", color = TextPrimary, fontSize = 14.sp) },
-                        supportingContent = {
-                            Text(skill.description, color = TextSecond, fontSize = 12.sp) },
+                        headlineContent = { Text("${skill.icon} ${skill.name}", color = TextPrimary, fontSize = 14.sp) },
+                        supportingContent = { Text(skill.description, color = TextSecond, fontSize = 12.sp) },
                         modifier = Modifier.clickable { onSelect(skill) },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
@@ -614,15 +737,13 @@ fun SkillVariablesDialog(
     onConfirm: (Map<String, String>) -> Unit, onDismiss: () -> Unit
 ) {
     val vars = remember {
-        Regex("\\{\\{([A-Z_]+)\\}\\}")
-            .findAll(skill.userPromptTemplate)
+        Regex("\\{\\{([A-Z_]+)\\}\\}").findAll(skill.userPromptTemplate)
             .map { it.groupValues[1] }.distinct().toList()
     }
-    val values = remember { mutableStateMapOf<String, String>() }
+    val values = remember { androidx.compose.runtime.snapshots.SnapshotStateMap<String, String>() }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = BgSurface,
+        onDismissRequest = onDismiss, containerColor = BgSurface,
         title = { Text("${skill.icon} ${skill.name}", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -636,8 +757,7 @@ fun SkillVariablesDialog(
                             focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
                             cursorColor = AccentGreen, focusedContainerColor = BgElevated,
-                    unfocusedContainerColor = BgElevated,
-                            focusedLabelColor = AccentGreen
+                            unfocusedContainerColor = BgElevated, focusedLabelColor = AccentGreen
                         ),
                         modifier = Modifier.fillMaxWidth(), maxLines = 4
                     )
@@ -647,7 +767,7 @@ fun SkillVariablesDialog(
         confirmButton = {
             Button(onClick = { onConfirm(values.toMap()) },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)) {
-                Text("Apply Skill")
+                Text("Apply")
             }
         },
         dismissButton = {
@@ -655,5 +775,3 @@ fun SkillVariablesDialog(
         }
     )
 }
-
-

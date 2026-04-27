@@ -29,7 +29,7 @@ import com.laiserdev.localllm.ui.theme.*
 import java.io.File
 
 @Composable
-fun PreviewScreen(vm: MainViewModel) {
+fun PreviewScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val activeFilePath by vm.activeFilePath.collectAsState()
     val openFiles by vm.openFiles.collectAsState()
     val activeProject by vm.activeProject.collectAsState()
@@ -55,15 +55,19 @@ fun PreviewScreen(vm: MainViewModel) {
         // ── Header ─────────────────────────────────────────────────────────────
         Column(Modifier.fillMaxWidth().background(BgSurface)) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(onClick = onOpenDrawer, Modifier.size(40.dp)) {
+                    Icon(Icons.Default.Menu, null, Modifier.size(20.dp), tint = TextSecond)
+                }
                 Text(
                     "Preview",
                     style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     // Back / Forward

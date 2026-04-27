@@ -1,96 +1,352 @@
 package com.laiserdev.localllm.ui
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.*
+import androidx.compose.ui.unit.*
 import androidx.navigation.compose.*
 import com.laiserdev.localllm.ui.screens.chat.ChatScreen
 import com.laiserdev.localllm.ui.screens.developer.DeveloperScreen
 import com.laiserdev.localllm.ui.screens.editor.EditorScreen
 import com.laiserdev.localllm.ui.screens.models.ModelsScreen
+import com.laiserdev.localllm.ui.screens.preview.PreviewScreen
 import com.laiserdev.localllm.ui.screens.settings.SettingsScreen
 import com.laiserdev.localllm.ui.screens.terminal.TerminalScreen
 import com.laiserdev.localllm.ui.theme.*
+import kotlinx.coroutines.launch
 
-import com.laiserdev.localllm.ui.screens.preview.PreviewScreen
-
-sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
-    object Chat      : Screen("chat",      "Chat",      Icons.Default.Chat)
-    object Editor    : Screen("editor",    "Editor",    Icons.Default.Code)
-    object Terminal  : Screen("terminal",  "Terminal",  Icons.Default.Terminal)
-    object Preview   : Screen("preview",   "Preview",   Icons.Default.Preview)
-    object Models    : Screen("models",    "Models",    Icons.Default.Memory)
-    object Developer : Screen("developer", "API",       Icons.Default.Api)
-    object Settings  : Screen("settings",  "Settings",  Icons.Default.Settings)
+sealed class Screen(val route: String, val label: String, val icon: ImageVector, val description: String) {
+    object Chat      : Screen("chat",      "Chat",      Icons.Default.Chat,      "Talk to your local AI")
+    object Editor    : Screen("editor",    "Editor",    Icons.Default.Code,      "Code editor + file tree")
+    object Terminal  : Screen("terminal",  "Terminal",  Icons.Default.Terminal,  "Run shell commands")
+    object Preview   : Screen("preview",   "Preview",   Icons.Default.Preview,   "Live HTML preview")
+    object Models    : Screen("models",    "Models",    Icons.Default.Memory,    "Download & load models")
+    object Developer : Screen("developer", "API",       Icons.Default.Api,       "Local OpenAI-compatible API")
+    object Settings  : Screen("settings",  "Settings",  Icons.Default.Settings,  "App configuration")
 }
 
-val bottomScreens = listOf(
+val allScreens = listOf(
     Screen.Chat, Screen.Editor, Screen.Terminal,
     Screen.Preview, Screen.Models, Screen.Developer, Screen.Settings
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation(vm: MainViewModel) {
     val navController = rememberNavController()
     val currentBack by navController.currentBackStackEntryAsState()
     val currentRoute = currentBack?.destination?.route
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar(
-                containerColor = BgSurface,
-                tonalElevation = 0.dp,
-                windowInsets = androidx.compose.foundation.layout.WindowInsets.navigationBars
-            ) {
-                bottomScreens.forEach { screen ->
-                    NavigationBarItem(
-                        selected = currentRoute == screen.route,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(screen.icon, contentDescription = screen.label) },
-                        label = { Text(screen.label, style = MaterialTheme.typography.labelSmall) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = AccentGreen,
-                            selectedTextColor = AccentGreen,
-                            indicatorColor = BgElevated,
-                            unselectedIconColor = TextSecond,
-                            unselectedTextColor = TextMuted
-                        )
-                    )
-                }
-            }
-        },
-        contentWindowInsets = WindowInsets(0),
-        containerColor = BgDeep
-    ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Chat.route,
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .imePadding(),
-            enterTransition = { fadeIn() + slideInHorizontally() },
-            exitTransition = { fadeOut() }
-        ) {
-            composable(Screen.Chat.route)      { ChatScreen(vm) }
-            composable(Screen.Editor.route)    { EditorScreen(vm) }
-            composable(Screen.Terminal.route)  { TerminalScreen(vm) }
-            composable(Screen.Preview.route)   { PreviewScreen(vm) }
-            composable(Screen.Models.route)    { ModelsScreen(vm) }
-            composable(Screen.Developer.route) { DeveloperScreen(vm) }
-            composable(Screen.Settings.route)  { SettingsScreen(vm) }
+    val currentScreen = allScreens.firstOrNull { it.route == currentRoute } ?: Screen.Chat
+
+    fun navigate(screen: Screen) {
+        scope.launch { drawerState.close() }
+        navController.navigate(screen.route) {
+            popUpTo(navController.graph.startDestinationId) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
         }
     }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppDrawer(
+                currentScreen = currentScreen,
+                onNavigate = ::navigate,
+                onClose = { scope.launch { drawerState.close() } },
+                vm = vm
+            )
+        },
+        scrimColor = Color.Black.copy(alpha = 0.6f)
+    ) {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0),
+            containerColor = BgDeep
+        ) { padding ->
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Chat.route,
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .imePadding(),
+                enterTransition = { fadeIn(tween(180)) },
+                exitTransition = { fadeOut(tween(120)) }
+            ) {
+                composable(Screen.Chat.route)      { ChatScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+                composable(Screen.Editor.route)    { EditorScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+                composable(Screen.Terminal.route)  { TerminalScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+                composable(Screen.Preview.route)   { PreviewScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+                composable(Screen.Models.route)    { ModelsScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+                composable(Screen.Developer.route) { DeveloperScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+                composable(Screen.Settings.route)  { SettingsScreen(vm, onOpenDrawer = { scope.launch { drawerState.open() } }) }
+            }
+        }
+    }
+}
+
+@Composable
+fun AppDrawer(
+    currentScreen: Screen,
+    onNavigate: (Screen) -> Unit,
+    onClose: () -> Unit,
+    vm: MainViewModel
+) {
+    val activeProject by vm.activeProject.collectAsState()
+    val settings by vm.settings.collectAsState()
+    val models by vm.models.collectAsState()
+    val loadedModel = models.firstOrNull { it.id == settings.activeModelId }
+
+    ModalDrawerSheet(
+        modifier = Modifier.width(300.dp),
+        drawerContainerColor = Color(0xFF0A0F0A),
+        drawerContentColor = TextPrimary,
+        windowInsets = WindowInsets.systemBars
+    ) {
+        Column(Modifier.fillMaxSize()) {
+
+            // ── Header ────────────────────────────────────────────────────────
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF0D1F0D), Color(0xFF0A0F0A))
+                        )
+                    )
+                    .padding(20.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF1A3A2A), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Memory, null, Modifier.size(20.dp), tint = AccentGreen)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "LocalLLM",
+                                color = TextPrimary,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.3).sp
+                            )
+                            Text("Local AI Assistant", color = TextMuted, fontSize = 11.sp)
+                        }
+                    }
+                    IconButton(onClick = onClose, Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, null, Modifier.size(18.dp), tint = TextMuted)
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Model status pill
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (loadedModel?.status?.name == "LOADED") Color(0xFF0D2A1A)
+                            else Color(0xFF1A1A1A),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .border(
+                            0.5.dp,
+                            if (loadedModel?.status?.name == "LOADED") AccentGreen.copy(0.3f) else BgBorder,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier
+                            .size(7.dp)
+                            .background(
+                                if (loadedModel?.status?.name == "LOADED") AccentGreen else TextMuted,
+                                CircleShape
+                            )
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        loadedModel?.name ?: "No model loaded",
+                        color = if (loadedModel?.status?.name == "LOADED") AccentGreen else TextMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (loadedModel == null) {
+                        Text("→ Models", color = TextMuted, fontSize = 10.sp)
+                    }
+                }
+
+                // Active project
+                if (activeProject != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF141814), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.FolderOpen, null, Modifier.size(13.dp), tint = AccentBlue)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            activeProject!!.name,
+                            color = AccentBlue,
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text("active", color = TextMuted, fontSize = 10.sp)
+                    }
+                }
+            }
+
+            HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+            Spacer(Modifier.height(8.dp))
+
+            // ── Nav items ─────────────────────────────────────────────────────
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Main group
+                DrawerSectionLabel("WORKSPACE")
+                DrawerNavItem(Screen.Chat, currentScreen, onNavigate)
+                DrawerNavItem(Screen.Editor, currentScreen, onNavigate)
+                DrawerNavItem(Screen.Terminal, currentScreen, onNavigate)
+                DrawerNavItem(Screen.Preview, currentScreen, onNavigate)
+
+                Spacer(Modifier.height(8.dp))
+                DrawerSectionLabel("CONFIGURATION")
+                DrawerNavItem(Screen.Models, currentScreen, onNavigate)
+                DrawerNavItem(Screen.Developer, currentScreen, onNavigate)
+                DrawerNavItem(Screen.Settings, currentScreen, onNavigate)
+            }
+
+            // ── Footer ────────────────────────────────────────────────────────
+            HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Lock, null, Modifier.size(12.dp), tint = TextMuted)
+                Spacer(Modifier.width(6.dp))
+                Text("100% on-device · no data leaves phone", color = TextMuted, fontSize = 10.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawerSectionLabel(text: String) {
+    Text(
+        text,
+        color = TextMuted,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun DrawerNavItem(
+    screen: Screen,
+    currentScreen: Screen,
+    onNavigate: (Screen) -> Unit
+) {
+    val selected = screen.route == currentScreen.route
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(
+                if (selected) Color(0xFF1A3A2A) else Color.Transparent,
+                RoundedCornerShape(10.dp)
+            )
+            .border(
+                if (selected) BorderStroke(0.5.dp, AccentGreen.copy(0.3f))
+                else BorderStroke(0.dp, Color.Transparent),
+                RoundedCornerShape(10.dp)
+            )
+            .clickable { onNavigate(screen) }
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            screen.icon, null,
+            Modifier.size(18.dp),
+            tint = if (selected) AccentGreen else TextSecond
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                screen.label,
+                color = if (selected) AccentGreen else TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            Text(screen.description, color = TextMuted, fontSize = 11.sp)
+        }
+        if (selected) {
+            Box(Modifier.size(6.dp).background(AccentGreen, CircleShape))
+        }
+    }
+}
+
+// ── Shared top bar for non-chat screens ───────────────────────────────────────
+@Composable
+fun AppTopBar(
+    title: String,
+    onOpenDrawer: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0A0F0A))
+            .statusBarsPadding()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onOpenDrawer, Modifier.size(40.dp)) {
+            Icon(Icons.Default.Menu, "Open menu", Modifier.size(22.dp), tint = TextSecond)
+        }
+        Text(
+            title,
+            color = TextPrimary,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f).padding(start = 4.dp)
+        )
+        actions()
+    }
+    HorizontalDivider(color = BgBorder.copy(alpha = 0.5f), thickness = 0.5.dp)
 }

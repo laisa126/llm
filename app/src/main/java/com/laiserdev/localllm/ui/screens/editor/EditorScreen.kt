@@ -25,7 +25,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.unit.Dp
 
 @Composable
-fun EditorScreen(vm: MainViewModel) {
+fun EditorScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val activeProject by vm.activeProject.collectAsState()
     val fileTree by vm.fileTree.collectAsState()
     val openFiles by vm.openFiles.collectAsState()
@@ -135,7 +135,7 @@ fun EditorScreen(vm: MainViewModel) {
                 Row(
                     Modifier.fillMaxWidth().background(BgSurface).horizontalScroll(rememberScrollState()),
                 ) {
-                    IconButton(onClick = { showFileTree = !showFileTree }, Modifier.size(36.dp)) {
+                    IconButton(onClick = { if (showFileTree) showFileTree = false else onOpenDrawer() }, Modifier.size(36.dp)) {
                         Icon(if (showFileTree) Icons.Default.MenuOpen else Icons.Default.Menu,
                             null, tint = TextSecond, modifier = Modifier.size(16.dp))
                     }

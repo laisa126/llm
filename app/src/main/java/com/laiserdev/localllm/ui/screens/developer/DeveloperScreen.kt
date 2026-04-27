@@ -25,7 +25,7 @@ import com.laiserdev.localllm.ui.theme.*
 import java.net.NetworkInterface
 
 @Composable
-fun DeveloperScreen(vm: MainViewModel) {
+fun DeveloperScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val serverRunning by vm.serverRunning.collectAsState()
     val settings by vm.settings.collectAsState()
     val context = LocalContext.current
@@ -33,14 +33,7 @@ fun DeveloperScreen(vm: MainViewModel) {
     val port = BuildConfig.API_PORT
 
     Column(Modifier.fillMaxSize().background(BgDeep).verticalScroll(rememberScrollState())) {
-        // Header
-        Column(Modifier.fillMaxWidth().background(BgSurface).padding(16.dp)) {
-            Text("Developer API", style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary, fontWeight = FontWeight.Bold)
-            Text("Integrate LocalLLM into your apps", color = TextSecond, fontSize = 13.sp)
-        }
-        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
-
+        com.laiserdev.localllm.ui.AppTopBar("Developer API", onOpenDrawer)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
             // ── Server toggle ──────────────────────────────────────────────────

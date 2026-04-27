@@ -29,7 +29,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
 
 @Composable
-fun TerminalScreen(vm: MainViewModel) {
+fun TerminalScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val lines by vm.terminalLines.collectAsState()
     val isRunning by vm.isRunningCommand.collectAsState()
     val activeProject by vm.activeProject.collectAsState()
@@ -49,11 +49,14 @@ fun TerminalScreen(vm: MainViewModel) {
 
         // ── Header ─────────────────────────────────────────────────────────────
         Row(
-            Modifier.fillMaxWidth().background(BgSurface).padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().background(BgSurface).padding(horizontal = 4.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onOpenDrawer, Modifier.size(40.dp)) {
+                Icon(Icons.Default.Menu, null, Modifier.size(20.dp), tint = TextSecond)
+            }
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(10.dp).background(Color(0xFFFF5F57), RoundedCornerShape(5.dp)))
                 Spacer(Modifier.width(5.dp))
                 Box(Modifier.size(10.dp).background(Color(0xFFFFBD2E), RoundedCornerShape(5.dp)))

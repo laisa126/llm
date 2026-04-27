@@ -21,20 +21,13 @@ import com.laiserdev.localllm.ui.MainViewModel
 import com.laiserdev.localllm.ui.theme.*
 
 @Composable
-fun ModelsScreen(vm: MainViewModel) {
+fun ModelsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val models by vm.models.collectAsState()
     val settings by vm.settings.collectAsState()
     val loadingState by vm.modelLoadingState.collectAsState()
 
     Column(Modifier.fillMaxSize().background(BgDeep)) {
-        // Header
-        Column(Modifier.fillMaxWidth().background(BgSurface).padding(16.dp)) {
-            Text("AI Models", style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary, fontWeight = FontWeight.Bold)
-            Text("Download and load models to use locally",
-                color = TextSecond, fontSize = 13.sp)
-        }
-        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+        com.laiserdev.localllm.ui.AppTopBar("AI Models", onOpenDrawer)
 
         // HF token warning banner
         if (settings.hfToken.isBlank()) {
