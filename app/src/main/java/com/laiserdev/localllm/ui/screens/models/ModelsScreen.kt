@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import com.laiserdev.localllm.data.repository.ModelBootstrap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.laiserdev.localllm.data.model.LLMModel
@@ -29,22 +30,57 @@ fun ModelsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     Column(Modifier.fillMaxSize().background(BgDeep)) {
         com.laiserdev.localllm.ui.AppTopBar("AI Models", onOpenDrawer)
 
-        // HF token warning banner
-        if (settings.hfToken.isBlank()) {
-            Row(
+        // HF token warning banner — only for downloadable models (bundled model doesn't need it)
+        val hasDownloadableModels = models.any {
+            it.id != ModelBootstrap.BUNDLED_MODEL_ID &&
+            it.status != ModelStatus.READY && it.status != ModelStatus.LOADED
+        }
+        if (settings.hfToken.isBlank() && hasDownloadableModels) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF1A1500))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Icon(Icons.Default.Warning, null, Modifier.size(16.dp), tint = WarnYellow)
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("HuggingFace token required", color = WarnYellow,
-                        fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Go to Settings → HuggingFace Token to add your token before downloading.",
-                        color = TextSecond, fontSize = 11.sp, lineHeight = 15.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, null, Modifier.size(14.dp), tint = WarnYellow)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Token needed to download additional models",
+                        color = WarnYellow, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    "Gemma 3 4B and 3n E4B require a HuggingFace token.\n" +
+                    "The built-in Gemma 3 1B ⭐ already works — no token needed.",
+                    color = TextSecond, fontSize = 11.sp, lineHeight = 15.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Accept license button
+                    OutlinedButton(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://huggingface.co/litert-community/Gemma3-4B-IT")
+                            )
+                            context.startActivity(intent)
+                        },
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, WarnYellow.copy(0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = WarnYellow),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Accept License", fontSize = 10.sp)
+                    }
+                    // Go to settings
+                    Button(
+                        onClick = { /* navigate handled by drawer */ },
+                        colors = ButtonDefaults.buttonColors(containerColor = WarnYellow, contentColor = BgDeep),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Add Token in Settings", fontSize = 10.sp)
+                    }
                 }
             }
             HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
