@@ -103,20 +103,46 @@ jobs:
           MODEL="gemma3-1b-int4.task"
           mkdir -p "$DEST"
 
-          # Primary source: our own GitHub Release (no token needed, always works)
-          GITHUB_URL="https://github.com/laisa126/llm/releases/download/model-v1/gemma3-1b-int4.task"
+          echo "🔍 Looking up model-v1 release asset..."
 
-          echo "⬇ Downloading Gemma 3 1B from GitHub Releases..."
+          # Get the asset download URL via GitHub API (handles private/draft releases)
+          ASSET_URL=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/model-v1" \
+            | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+assets = data.get('assets', [])
+print(f'Release: {data.get(\"name\",\"?\")} draft={data.get(\"draft\")} prerelease={data.get(\"prerelease\")}', file=sys.stderr)
+for a in assets:
+    print(f'Asset: {a[\"name\"]} size={a[\"size\"]} state={a[\"state\"]}', file=sys.stderr)
+    if a['name'] == 'gemma3-1b-int4.task' and a['state'] == 'uploaded':
+        print(a['url'])
+        break
+" 2>&1)
+
+          echo "$ASSET_URL" | grep "^Asset\|^Release" || true
+          DOWNLOAD_URL=$(echo "$ASSET_URL" | grep "^https://api.github.com")
+
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "⚠ Asset not found in model-v1 release — building without model"
+            echo "  Re-run 'Upload Model to Releases' workflow to fix this"
+            exit 0
+          fi
+
+          echo "⬇ Downloading from: $DOWNLOAD_URL"
           HTTP_CODE=$(curl -L \
-            -H "User-Agent: LocalLLM-CI/1.0" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/octet-stream" \
             --output "$DEST/$MODEL.tmp" \
             --write-out "%{http_code}" \
-            --retry 3 --retry-delay 10 \
+            --retry 3 --retry-delay 5 \
             --max-time 1800 \
             --progress-bar \
-            "$GITHUB_URL")
+            "$DOWNLOAD_URL")
 
-          echo "GitHub Release: HTTP $HTTP_CODE"
+          echo "HTTP: $HTTP_CODE"
           FILE_SIZE=$(stat -c%s "$DEST/$MODEL.tmp" 2>/dev/null || echo "0")
           echo "File size: $FILE_SIZE bytes"
 
@@ -125,10 +151,7 @@ jobs:
             echo "✅ Model bundled: $(du -sh $DEST/$MODEL | cut -f1)"
           else
             rm -f "$DEST/$MODEL.tmp"
-            echo "⚠ GitHub Release download failed (HTTP $HTTP_CODE, size $FILE_SIZE)"
-            echo "  Run the 'Upload Model to Releases' workflow first:"
-            echo "  Actions → Upload Model to Releases → Run workflow"
-            echo "  Building APK without bundled model."
+            echo "⚠ Download failed (HTTP $HTTP_CODE, size $FILE_SIZE) — building without model"
           fi
 
       - name: Build APK
