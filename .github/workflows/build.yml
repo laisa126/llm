@@ -109,6 +109,8 @@ jobs:
           fi
 
           TOKEN="${{ secrets.HF_TOKEN }}"
+          echo "Token length: ${#TOKEN}"
+          echo "Token prefix: ${TOKEN:0:5}..."
 
           # Verify token works
           WHOAMI=$(curl -s -o /dev/null -w "%{http_code}" \
