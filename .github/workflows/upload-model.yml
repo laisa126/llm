@@ -80,6 +80,26 @@ jobs:
 
             - Model: Gemma 3 1B IT INT4
             - Format: MediaPipe LiteRT .task
-            - Size: ~700MB
+            - Size: ~529MB
           files: gemma3-1b-int4.task
           make_latest: false
+
+      - name: Verify upload succeeded
+        run: |
+          echo "Verifying model-v1 release asset..."
+          sleep 5
+          ASSET_SIZE=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/model-v1" \
+            | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+assets = data.get('assets', [])
+for a in assets:
+    print(f\"{a['name']}: {a['size']} bytes ({a['size']//1024//1024}MB) - state: {a['state']}\")
+if not assets:
+    print('❌ No assets found in release!')
+    sys.exit(1)
+")
+          echo "$ASSET_SIZE"
