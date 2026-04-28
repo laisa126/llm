@@ -112,18 +112,9 @@ jobs:
           echo "Token length: ${#TOKEN}"
           echo "Token prefix: ${TOKEN:0:5}..."
 
-          # Verify token works
-          WHOAMI=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer $TOKEN" \
-            "https://huggingface.co/api/whoami")
-          echo "Token check: HTTP $WHOAMI"
-
-          if [ "$WHOAMI" != "200" ]; then
-            echo "⚠ Token invalid (HTTP $WHOAMI) — building without bundled model"
-            exit 0
-          fi
-
-          echo "⬇ Downloading Gemma 3 1B…"
+          # Skip whoami check — some read tokens return 401 on /api/whoami
+          # but still work for model downloads. Just attempt the download directly.
+          echo "⬇ Attempting download…"
 
           # Try litert-community first
           HTTP_CODE=$(curl -L \
