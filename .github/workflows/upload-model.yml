@@ -1,0 +1,85 @@
+name: Upload Model to Releases
+
+# Run this ONCE manually to download the model from HuggingFace
+# and store it permanently in GitHub Releases.
+# After this succeeds, build.yml downloads from GitHub instead.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hf_token:
+        description: 'HuggingFace token (hf_...)'
+        required: true
+        type: string
+
+jobs:
+  upload:
+    name: Download & Upload Model
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Gemma 3 1B from HuggingFace
+        run: |
+          MODEL="gemma3-1b-int4.task"
+          TOKEN="${{ github.event.inputs.hf_token }}"
+
+          echo "Token prefix: ${TOKEN:0:8}..."
+          echo "⬇ Downloading from HuggingFace..."
+
+          HTTP_CODE=$(curl -L \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "User-Agent: LocalLLM-CI/1.0" \
+            --output "$MODEL" \
+            --write-out "%{http_code}" \
+            --retry 3 --retry-delay 10 \
+            --max-time 3600 \
+            --progress-bar \
+            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task")
+
+          echo "HTTP: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ litert-community failed ($HTTP_CODE), trying google/gemma-3-1b-it..."
+            HTTP_CODE=$(curl -L \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "User-Agent: LocalLLM-CI/1.0" \
+              --output "$MODEL" \
+              --write-out "%{http_code}" \
+              --retry 3 --retry-delay 10 \
+              --max-time 3600 \
+              --progress-bar \
+              "https://huggingface.co/google/gemma-3-1b-it/resolve/main/gemma3-1b-it-int4.task")
+            echo "HTTP: $HTTP_CODE"
+          fi
+
+          FILE_SIZE=$(stat -c%s "$MODEL" 2>/dev/null || echo "0")
+          echo "File size: $FILE_SIZE bytes"
+
+          if [ "$FILE_SIZE" -lt 104857600 ]; then
+            echo "❌ File too small — likely an error page not the model"
+            cat "$MODEL" | head -c 500
+            exit 1
+          fi
+
+          echo "✅ Downloaded: $(du -sh $MODEL | cut -f1)"
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: model-v1
+          name: "Gemma 3 1B Model (Built-in)"
+          body: |
+            ## Gemma 3 1B LiteRT Model
+
+            This release stores the bundled AI model used by LocalLLM.
+            **Do not delete** — the build workflow downloads from here.
+
+            - Model: Gemma 3 1B IT INT4
+            - Format: MediaPipe LiteRT .task
+            - Size: ~700MB
+          files: gemma3-1b-int4.task
+          make_latest: false
