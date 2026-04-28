@@ -37,6 +37,11 @@ android {
     // Prevent Gradle from compressing the .task model file — it's already binary
     // and compression would make it unreadable directly from assets
     androidResources { noCompress += listOf("task", "bin", "tflite") }
+    // Universal APK — no ABI/density splits so model asset stays intact
+    splits {
+        abi { isEnable = false }
+        density { isEnable = false }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

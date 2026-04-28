@@ -183,9 +183,24 @@ jobs:
       - name: Locate & rename APK
         run: |
           APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
-          cp "$APK" "app/build/outputs/apk/${{ steps.version.outputs.apk_name }}.apk"
-          echo "APK=$(find app/build/outputs/apk -name "LocalLLM*.apk")" >> $GITHUB_ENV
-          echo "Size: $(du -sh $APK | cut -f1)"
+          DEST="app/build/outputs/apk/${{ steps.version.outputs.apk_name }}.apk"
+          cp "$APK" "$DEST"
+          echo "APK=$DEST" >> $GITHUB_ENV
+          SIZE=$(du -sh "$DEST" | cut -f1)
+          BYTES=$(stat -c%s "$DEST")
+          echo "APK size: $SIZE ($BYTES bytes)"
+          # Validate APK is a valid ZIP (APKs are ZIP files)
+          if ! unzip -t "$DEST" > /dev/null 2>&1; then
+            echo "❌ APK ZIP validation failed — corrupt APK"
+            exit 1
+          fi
+          echo "✅ APK ZIP structure valid"
+          # Check if model is bundled inside
+          if unzip -l "$DEST" | grep -q "assets/models/gemma3"; then
+            echo "✅ Gemma 3 1B model confirmed inside APK"
+          else
+            echo "⚠ Model not found inside APK — built without bundled model"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -193,6 +208,7 @@ jobs:
           name: ${{ steps.version.outputs.apk_name }}
           path: ${{ env.APK }}
           retention-days: 30
+          compression-level: 0
 
   release:
     name: Create Release
@@ -208,6 +224,20 @@ jobs:
         with:
           name: ${{ needs.build.outputs.apk_name }}
           path: ./artifacts
+      - name: Validate & prepare release APK
+        run: |
+          APK=$(find ./artifacts -name "*.apk" | head -1)
+          if [ -z "$APK" ]; then
+            echo "❌ No APK found in artifacts"
+            exit 1
+          fi
+          SIZE=$(du -sh "$APK" | cut -f1)
+          echo "APK: $APK ($SIZE)"
+          if ! unzip -t "$APK" > /dev/null 2>&1; then
+            echo "❌ APK is corrupt — cannot release"
+            exit 1
+          fi
+          echo "✅ APK valid — proceeding with release"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
