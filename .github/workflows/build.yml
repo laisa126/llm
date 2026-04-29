@@ -98,6 +98,9 @@ jobs:
           fi
 
       - name: Download bundled model (Gemma 3 1B)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           DEST="app/src/main/assets/models"
           MODEL="gemma3-1b-int4.task"
@@ -105,53 +108,47 @@ jobs:
 
           echo "🔍 Looking up model-v1 release asset..."
 
-          # Get the asset download URL via GitHub API (handles private/draft releases)
-          ASSET_URL=$(curl -s \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          # Fetch release JSON
+          RELEASE_JSON=$(curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/model-v1" \
-            | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-assets = data.get('assets', [])
-print(f'Release: {data.get(\"name\",\"?\")} draft={data.get(\"draft\")} prerelease={data.get(\"prerelease\")}', file=sys.stderr)
-for a in assets:
-    print(f'Asset: {a[\"name\"]} size={a[\"size\"]} state={a[\"state\"]}', file=sys.stderr)
-    if a['name'] == 'gemma3-1b-int4.task' and a['state'] == 'uploaded':
-        print(a['url'])
-        break
-" 2>&1)
+            "https://api.github.com/repos/$REPO/releases/tags/model-v1")
 
-          echo "$ASSET_URL" | grep "^Asset\|^Release" || true
-          DOWNLOAD_URL=$(echo "$ASSET_URL" | grep "^https://api.github.com")
+          echo "Release name: $(echo $RELEASE_JSON | jq -r '.name // "not found"')"
+          echo "Draft: $(echo $RELEASE_JSON | jq -r '.draft')"
+          echo "Assets: $(echo $RELEASE_JSON | jq -r '.assets | length')"
+          echo $RELEASE_JSON | jq -r '.assets[] | "  \(.name) \(.size) bytes state=\(.state)"'
 
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "⚠ Asset not found in model-v1 release — building without model"
-            echo "  Re-run 'Upload Model to Releases' workflow to fix this"
+          # Get asset API URL for the .task file
+          ASSET_URL=$(echo $RELEASE_JSON | jq -r '.assets[] | select(.name == "gemma3-1b-int4.task") | .url')
+          echo "Asset URL: $ASSET_URL"
+
+          if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+            echo "⚠ Asset not found — building without bundled model"
             exit 0
           fi
 
-          echo "⬇ Downloading from: $DOWNLOAD_URL"
+          echo "⬇ Downloading model..."
           HTTP_CODE=$(curl -L \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/octet-stream" \
             --output "$DEST/$MODEL.tmp" \
             --write-out "%{http_code}" \
             --retry 3 --retry-delay 5 \
             --max-time 1800 \
             --progress-bar \
-            "$DOWNLOAD_URL")
+            "$ASSET_URL")
 
           echo "HTTP: $HTTP_CODE"
           FILE_SIZE=$(stat -c%s "$DEST/$MODEL.tmp" 2>/dev/null || echo "0")
-          echo "File size: $FILE_SIZE bytes"
+          echo "Size: $FILE_SIZE bytes"
 
           if [ "$HTTP_CODE" = "200" ] && [ "$FILE_SIZE" -gt 104857600 ]; then
             mv "$DEST/$MODEL.tmp" "$DEST/$MODEL"
             echo "✅ Model bundled: $(du -sh $DEST/$MODEL | cut -f1)"
           else
             rm -f "$DEST/$MODEL.tmp"
-            echo "⚠ Download failed (HTTP $HTTP_CODE, size $FILE_SIZE) — building without model"
+            echo "⚠ Failed (HTTP $HTTP_CODE, $FILE_SIZE bytes) — building without model"
           fi
 
       - name: Build APK
