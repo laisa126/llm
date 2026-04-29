@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -40,7 +40,7 @@ object ModelBootstrap {
      * Emits Float progress 0.0..1.0.
      * Throws on failure.
      */
-    fun extract(context: Context): Flow<Float> = flow {
+    fun extract(context: Context): Flow<Float> = channelFlow {
         emit(0f)
         val destDir  = File(context.filesDir, "models").also { it.mkdirs() }
         val destFile = File(destDir, BUNDLED_MODEL_FILE)

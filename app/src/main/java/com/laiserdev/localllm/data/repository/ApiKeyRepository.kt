@@ -11,18 +11,32 @@ import kotlinx.coroutines.withContext
 
 class ApiKeyRepository {
 
-    private val supabase = createSupabaseClient(
-        supabaseUrl = BuildConfig.SUPABASE_URL,
-        supabaseKey = BuildConfig.SUPABASE_ANON_KEY
-    ) {
-        install(Postgrest)
-    }
+    // Guard against placeholder/missing Supabase credentials — the Supabase SDK
+    // throws IllegalArgumentException at client construction time if the URL is
+    // not a valid https:// URL, which crashes the app on launch.
+    private val supabase = runCatching {
+        val url = BuildConfig.SUPABASE_URL
+        val key = BuildConfig.SUPABASE_ANON_KEY
+        if (url.contains("your-project") || url.isBlank() || key.contains("your-anon") || key.isBlank()) {
+            null
+        } else {
+            createSupabaseClient(supabaseUrl = url, supabaseKey = key) {
+                install(Postgrest)
+            }
+        }
+    }.getOrNull()
+
+    private val isConfigured get() = supabase != null
 
     // ─── Validate API key from incoming requests ───────────────────────────────
 
     suspend fun validateKey(key: String): Result<ApiKeyRecord> = withContext(Dispatchers.IO) {
+        if (!isConfigured) {
+            // Supabase not set up — allow all requests through (dev/local mode)
+            return@withContext Result.success(ApiKeyRecord(key = key, name = "local", isActive = true))
+        }
         try {
-            val records = supabase.postgrest["api_keys"]
+            val records = supabase!!.postgrest["api_keys"]
                 .select {
                     filter {
                         eq("key", key)
@@ -34,7 +48,6 @@ class ApiKeyRepository {
             if (records.isEmpty()) {
                 Result.failure(Exception("Invalid or inactive API key"))
             } else {
-                // Increment usage count
                 supabase.postgrest["api_keys"]
                     .update({ set("usage_count", records[0].usageCount + 1) }) {
                         filter { eq("key", key) }
@@ -50,8 +63,9 @@ class ApiKeyRepository {
     // ─── Check if any keys exist (for onboarding) ──────────────────────────────
 
     suspend fun hasAnyKeys(): Boolean = withContext(Dispatchers.IO) {
+        if (!isConfigured) return@withContext false
         try {
-            val records = supabase.postgrest["api_keys"].select().decodeList<ApiKeyRecord>()
+            val records = supabase!!.postgrest["api_keys"].select().decodeList<ApiKeyRecord>()
             records.isNotEmpty()
         } catch (e: Exception) {
             false
