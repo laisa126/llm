@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LocalLLM" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <!-- Base app theme. Uses Material3 theme parent to avoid crashes in
+         pure Compose + M3 apps (MaterialComponents parent can throw
+         IllegalArgumentException on attribute resolution). -->
+    <style name="Theme.LocalLLM" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
-        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/black</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- Splash screen — shown by OS before the Activity renders.
+         Requires androidx.core:core-splashscreen:1.0.1 -->
+    <style name="Theme.LocalLLM.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/black</item>
+        <item name="postSplashScreenTheme">@style/Theme.LocalLLM</item>
     </style>
 </resources>
