@@ -246,10 +246,10 @@ Rules:
                 }
                 "search_web" -> {
                     val query = args["query"]!!.jsonPrimitive.content
-                    // Uses DuckDuckGo instant answer API (no key needed)
                     val encoded = java.net.URLEncoder.encode(query, "UTF-8")
-                    val url = URL("https://api.duckduckgo.com/?q=$encoded&format=json&no_html=1")
-                    val response = url.readText()
+                    val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        URL("https://api.duckduckgo.com/?q=$encoded&format=json&no_html=1").readText()
+                    }
                     val json = Json.parseToJsonElement(response).jsonObject
                     val answer = json["AbstractText"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
                         ?: json["Answer"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
@@ -258,7 +258,9 @@ Rules:
                 }
                 "http_get" -> {
                     val url = args["url"]!!.jsonPrimitive.content
-                    val content = URL(url).readText().take(4000) // limit response
+                    val content = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        URL(url).readText().take(4000)
+                    }
                     ToolResult(content)
                 }
                 "list_processes" -> {
