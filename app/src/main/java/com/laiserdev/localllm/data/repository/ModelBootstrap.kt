@@ -41,7 +41,7 @@ object ModelBootstrap {
      * Throws on failure.
      */
     fun extract(context: Context): Flow<Float> = channelFlow {
-        emit(0f)
+        send(0f)
         val destDir  = File(context.filesDir, "models").also { it.mkdirs() }
         val destFile = File(destDir, BUNDLED_MODEL_FILE)
         val tmpFile  = File(destDir, "$BUNDLED_MODEL_FILE.tmp")
@@ -63,7 +63,7 @@ object ModelBootstrap {
                         written += bytes
                         if (totalBytes > 0) {
                             val progress = written.toFloat() / totalBytes
-                            emit(progress.coerceIn(0f, 0.99f))
+                            channel.trySend(progress.coerceIn(0f, 0.99f))
                         }
                     }
                 }
@@ -71,6 +71,6 @@ object ModelBootstrap {
             tmpFile.renameTo(destFile)
             Log.d(TAG, "✅ Bundled model extracted: ${destFile.length() / 1_000_000}MB")
         }
-        emit(1f)
+        send(1f)
     }
 }
