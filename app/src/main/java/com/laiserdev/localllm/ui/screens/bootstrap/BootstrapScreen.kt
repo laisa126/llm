@@ -1,101 +1,139 @@
 package com.laiserdev.localllm.ui.screens.bootstrap
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.laiserdev.localllm.R
 import com.laiserdev.localllm.ui.theme.*
 
 @Composable
-fun BootstrapScreen(
-    progress: Float,          // 0.0 .. 1.0
-    phase: BootstrapPhase
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "spin")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing)),
-        label = "rot"
+fun BootstrapScreen(progress: Float, phase: BootstrapPhase) {
+
+    val pulse = rememberInfiniteTransition(label = "pulse")
+    val scale by pulse.animateFloat(
+        initialValue = 1f, targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse),
+        label = "scale"
+    )
+    val ringAlpha by pulse.animateFloat(
+        initialValue = 0.15f, targetValue = 0.45f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse),
+        label = "ring"
     )
 
     Box(
-        Modifier.fillMaxSize().background(BgDeep),
+        Modifier.fillMaxSize()
+            .background(
+                Brush.radialGradient(
+                    listOf(Color(0xFF0A1525), BgDeep),
+                    radius = 1200f
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.padding(40.dp)
+            verticalArrangement = Arrangement.spacedBy(28.dp),
+            modifier = Modifier.padding(horizontal = 40.dp)
         ) {
-            // Animated logo
-            Box(
-                Modifier
-                    .size(88.dp)
-                    .background(Color(0xFF0D1F0D), CircleShape)
-                    .border(1.5.dp, AccentGreen.copy(alpha = 0.4f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+
+            // ── Pulsing logo ──────────────────────────────────────────────────
+            Box(contentAlignment = Alignment.Center) {
+                // Outer glow ring
+                Box(
+                    Modifier
+                        .size(120.dp)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    AccentCyan.copy(alpha = ringAlpha),
+                                    Color.Transparent
+                                )
+                            ),
+                            CircleShape
+                        )
+                )
+                // Icon
+                Image(
+                    painter = painterResource(R.drawable.ic_app_logo),
+                    contentDescription = "LocalLLM",
+                    modifier = Modifier
+                        .size(88.dp)
+                        .scale(if (phase == BootstrapPhase.LOADING) scale else 1f)
+                        .clip(RoundedCornerShape(22.dp)),
+                    contentScale = ContentScale.Fit
+                )
+                // Done check overlay
                 if (phase == BootstrapPhase.DONE) {
-                    Icon(
-                        Icons.Default.CheckCircle, null,
-                        Modifier.size(44.dp), tint = AccentGreen
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Memory, null,
-                        Modifier.size(44.dp).rotate(if (phase == BootstrapPhase.EXTRACTING) rotation else 0f),
-                        tint = AccentGreen
-                    )
+                    Box(
+                        Modifier
+                            .size(28.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 4.dp, y = 4.dp)
+                            .background(AccentGreen, CircleShape)
+                            .border(2.dp, BgDeep, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null,
+                            Modifier.size(16.dp), tint = BgDeep)
+                    }
                 }
             }
 
-            // Title
+            // ── Title ─────────────────────────────────────────────────────────
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "LocalLLM",
+                    "Local LLM Agent",
                     color = TextPrimary,
-                    fontSize = 28.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.5).sp
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     when (phase) {
                         BootstrapPhase.CHECKING   -> "Checking AI model…"
-                        BootstrapPhase.EXTRACTING -> "Setting up AI model…"
-                        BootstrapPhase.LOADING    -> "Loading AI model…"
-                        BootstrapPhase.DONE       -> "Ready!"
-                        BootstrapPhase.ERROR      -> "Setup failed"
+                        BootstrapPhase.EXTRACTING -> "Setting up Gemma 3 1B…"
+                        BootstrapPhase.LOADING    -> "Loading into memory…"
+                        BootstrapPhase.DONE       -> "Ready to code"
+                        BootstrapPhase.ERROR      -> "Setup encountered an error"
                     },
-                    color = TextSecond,
-                    fontSize = 15.sp,
+                    color = if (phase == BootstrapPhase.DONE) AccentCyan else TextSecond,
+                    fontSize = 14.sp,
                     textAlign = TextAlign.Center
                 )
             }
 
-            // Progress bar + percentage
+            // ── Progress ──────────────────────────────────────────────────────
             if (phase == BootstrapPhase.EXTRACTING || phase == BootstrapPhase.LOADING) {
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .background(BgSurface, RoundedCornerShape(12.dp))
-                        .border(0.5.dp, BgBorder, RoundedCornerShape(12.dp))
+                        .background(BgSurface, RoundedCornerShape(14.dp))
+                        .border(0.5.dp, BgBorderBright, RoundedCornerShape(14.dp))
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -104,70 +142,62 @@ fun BootstrapScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            if (phase == BootstrapPhase.EXTRACTING)
-                                "Extracting Gemma 3 1B"
-                            else "Loading into memory",
-                            color = TextSecond, fontSize = 13.sp
+                            if (phase == BootstrapPhase.EXTRACTING) "Extracting model"
+                            else "Loading model",
+                            color = TextSecond, fontSize = 12.sp
                         )
                         Text(
                             "${(progress * 100).toInt()}%",
-                            color = AccentGreen, fontSize = 13.sp, fontWeight = FontWeight.Bold
+                            color = AccentCyan, fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
-
                     LinearProgressIndicator(
                         progress = { progress },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                        color = AccentGreen,
+                        modifier = Modifier.fillMaxWidth().height(5.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = AccentCyan,
                         trackColor = BgElevated,
                         strokeCap = StrokeCap.Round
                     )
-
                     Text(
-                        if (phase == BootstrapPhase.EXTRACTING)
-                            "~700MB · One-time setup, takes ~30 seconds"
-                        else
-                            "First load takes a few seconds…",
+                        "~700MB · One-time setup",
                         color = TextMuted, fontSize = 11.sp
                     )
                 }
             }
 
-            // Loading spinner for checking/loading phases
             if (phase == BootstrapPhase.CHECKING || phase == BootstrapPhase.LOADING) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
-                    color = AccentGreen,
-                    strokeWidth = 2.5.dp
+                    modifier = Modifier.size(24.dp),
+                    color = AccentCyan,
+                    strokeWidth = 2.dp
                 )
             }
 
-            // Done state
+            // ── Done card ─────────────────────────────────────────────────────
             if (phase == BootstrapPhase.DONE) {
-                Column(
+                Row(
                     Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF0D2A1A), RoundedCornerShape(12.dp))
-                        .border(0.5.dp, AccentGreen.copy(0.3f), RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color(0xFF002A1A), Color(0xFF00152A))
+                            ),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .border(0.5.dp,
+                            Brush.horizontalGradient(listOf(AccentGreen.copy(0.4f), AccentCyan.copy(0.4f))),
+                            RoundedCornerShape(12.dp))
                         .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, Modifier.size(14.dp), tint = AccentGreen)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Gemma 3 1B ready", color = AccentGreen, fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Lock, null, Modifier.size(14.dp), tint = TextMuted)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Runs 100% on-device", color = TextSecond, fontSize = 12.sp)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SmartToy, null, Modifier.size(14.dp), tint = TextMuted)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Agent mode enabled", color = TextSecond, fontSize = 12.sp)
-                    }
+                    Icon(Icons.Default.CheckCircle, null,
+                        Modifier.size(15.dp), tint = AccentGreen)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Gemma 3 1B · 100% on-device",
+                        color = AccentGreen, fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium)
                 }
             }
         }

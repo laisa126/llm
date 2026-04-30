@@ -90,9 +90,9 @@ fun ModelsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                 Modifier.fillMaxWidth().background(Color(0xFF1A2A1A)).padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(Modifier.size(16.dp), color = AccentGreen, strokeWidth = 2.dp)
+                CircularProgressIndicator(Modifier.size(16.dp), color = AccentCyan, strokeWidth = 2.dp)
                 Spacer(Modifier.width(10.dp))
-                Text(loadingState!!, color = AccentGreen, fontSize = 13.sp)
+                Text(loadingState!!, color = AccentCyan, fontSize = 13.sp)
             }
         }
 
@@ -120,7 +120,7 @@ fun ModelCard(
     onDownload: () -> Unit, onLoad: () -> Unit
 ) {
     val borderColor = when {
-        model.status == ModelStatus.LOADED -> AccentGreen
+        model.status == ModelStatus.LOADED -> AccentCyan
         isActive -> AccentBlue
         else -> BgBorder
     }
@@ -145,14 +145,14 @@ fun ModelCard(
                                     .border(0.5.dp, AccentGreen.copy(0.4f), RoundedCornerShape(4.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Text("Built-in", color = AccentGreen, fontSize = 9.sp,
+                                Text("Built-in", color = AccentCyan, fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold)
                             }
                         }
                         if (model.status == ModelStatus.LOADED) {
                             Spacer(Modifier.width(8.dp))
                             Box(Modifier.background(Color(0xFF1A3A2A), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                Text("LOADED", color = AccentGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                Text("LOADED", color = AccentCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -177,7 +177,7 @@ fun ModelCard(
                 LinearProgressIndicator(
                     progress = { model.downloadProgress },
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
-                    color = AccentGreen, trackColor = BgElevated
+                    color = AccentCyan, trackColor = BgElevated
                 )
                 Spacer(Modifier.height(4.dp))
                 val pct = (model.downloadProgress * 100).toInt()
@@ -185,7 +185,7 @@ fun ModelCard(
                 val total = (model.sizeGb * 1024).toInt()
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("$pct%  ·  ${downloaded}MB / ${total}MB",
-                        color = AccentGreen, fontSize = 11.sp)
+                        color = AccentCyan, fontSize = 11.sp)
                     if (model.downloadProgress > 0 && model.downloadProgress < 1f) {
                         Text("Downloading...", color = TextMuted, fontSize = 11.sp)
                     }
@@ -236,7 +236,7 @@ fun ModelCard(
                     }
                     else -> {
                         Button(onClick = onDownload,
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = BgDeep),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                             Icon(Icons.Default.Download, null, Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))

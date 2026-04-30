@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -100,7 +101,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     Modifier
                         .size(6.dp)
                         .background(
-                            if (loadedModelName != null) AccentGreen else TextMuted,
+                            if (loadedModelName != null) AccentCyan else TextMuted,
                             CircleShape
                         )
                 )
@@ -122,12 +123,12 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
             Box(
                 Modifier
                     .background(
-                        if (agentMode) Color(0xFF1A3A2A) else Color(0xFF141814),
+                        if (agentMode) Color(0xFF001A2A) else Color(0xFF0F1419),
                         RoundedCornerShape(20.dp)
                     )
                     .border(
                         0.5.dp,
-                        if (agentMode) AccentGreen.copy(0.4f) else BgBorder,
+                        if (agentMode) AccentCyan.copy(0.4f) else BgBorder,
                         RoundedCornerShape(20.dp)
                     )
                     .clickable { agentMode = !agentMode }
@@ -137,13 +138,13 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     Icon(
                         Icons.Default.SmartToy, null,
                         Modifier.size(14.dp),
-                        tint = if (agentMode) AccentGreen else TextMuted
+                        tint = if (agentMode) AccentCyan else TextMuted
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
                         "Agent",
                         fontSize = 12.sp,
-                        color = if (agentMode) AccentGreen else TextMuted,
+                        color = if (agentMode) AccentCyan else TextMuted,
                         fontWeight = if (agentMode) FontWeight.SemiBold else FontWeight.Normal
                     )
                 }
@@ -167,12 +168,12 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     .padding(horizontal = 16.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.SmartToy, null, Modifier.size(12.dp), tint = AccentGreen)
+                Icon(Icons.Default.SmartToy, null, Modifier.size(12.dp), tint = AccentCyan)
                 Spacer(Modifier.width(7.dp))
                 Text(
                     if (activeProject != null) "Agent mode · ${activeProject!!.name}"
                     else "⚠ Open a project in Editor before using agent",
-                    color = if (activeProject != null) AccentGreen else WarnYellow,
+                    color = if (activeProject != null) AccentCyan else WarnYellow,
                     fontSize = 11.sp
                 )
             }
@@ -215,9 +216,9 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.SmartToy, null, Modifier.size(12.dp), tint = AccentGreen)
+                                    Icon(Icons.Default.SmartToy, null, Modifier.size(12.dp), tint = AccentCyan)
                                     Spacer(Modifier.width(5.dp))
-                                    Text("Agent working", color = AccentGreen, fontSize = 12.sp,
+                                    Text("Agent working", color = AccentCyan, fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium)
                                 }
                                 Text("${agentSteps.size} steps", color = TextMuted, fontSize = 10.sp)
@@ -291,7 +292,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         fontSize = 15.sp,
                         lineHeight = 22.sp
                     ),
-                    cursorBrush = SolidColor(AccentGreen),
+                    cursorBrush = SolidColor(AccentCyan),
                     maxLines = 6,
                     decorationBox = { inner ->
                         if (inputText.isEmpty()) {
@@ -321,14 +322,14 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         .padding(end = 4.dp, bottom = 4.dp)
                         .size(34.dp)
                         .background(
-                            if (inputText.isNotBlank() && !busy) AccentGreen
+                            if (inputText.isNotBlank() && !busy) AccentCyan
                             else if (busy) Color(0xFF1A1A1A)
                             else Color(0xFF1A1A1A),
                             RoundedCornerShape(10.dp)
                         )
                         .border(
                             0.5.dp,
-                            if (busy) AccentGreen.copy(0.3f) else Color.Transparent,
+                            if (busy) AccentCyan.copy(0.3f) else Color.Transparent,
                             RoundedCornerShape(10.dp)
                         )
                         .clickable(enabled = inputText.isNotBlank() || busy) {
@@ -344,7 +345,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (busy) {
-                        Icon(Icons.Default.Stop, null, Modifier.size(16.dp), tint = AccentGreen)
+                        Icon(Icons.Default.Stop, null, Modifier.size(16.dp), tint = AccentCyan)
                     } else {
                         Icon(
                             Icons.Default.ArrowUpward, null,
@@ -459,7 +460,7 @@ fun MessageBubble(msg: ChatMessage) {
             Box(
                 Modifier
                     .widthIn(max = 280.dp)
-                    .background(Color(0xFF1A3A2A), RoundedCornerShape(18.dp, 4.dp, 18.dp, 18.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF002A1A), Color(0xFF001A2A))), RoundedCornerShape(18.dp, 4.dp, 18.dp, 18.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 if (msg.imageUri != null) {
@@ -489,11 +490,11 @@ fun MessageBubble(msg: ChatMessage) {
             Box(
                 Modifier
                     .size(28.dp)
-                    .background(Color(0xFF1A3A2A), CircleShape)
+                    .background(Brush.radialGradient(listOf(AccentCyan.copy(0.2f), AccentPurple.copy(0.1f))), CircleShape)
                     .border(0.5.dp, AccentGreen.copy(0.3f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Memory, null, Modifier.size(14.dp), tint = AccentGreen)
+                Icon(Icons.Default.SmartToy, null, Modifier.size(14.dp), tint = AccentCyan)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -697,11 +698,11 @@ fun EmptyState(
         // Large avatar
         Box(
             Modifier.size(64.dp)
-                .background(Color(0xFF1A3A2A), CircleShape)
+                .background(Brush.radialGradient(listOf(AccentCyan.copy(0.2f), AccentPurple.copy(0.1f))), CircleShape)
                 .border(1.dp, AccentGreen.copy(0.25f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Memory, null, Modifier.size(32.dp), tint = AccentGreen)
+            androidx.compose.foundation.Image(painter = androidx.compose.ui.res.painterResource(com.laiserdev.localllm.R.drawable.ic_app_logo), contentDescription = null, modifier = Modifier.size(44.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)), contentScale = androidx.compose.ui.layout.ContentScale.Fit)
         }
 
         Spacer(Modifier.height(16.dp))

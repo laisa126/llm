@@ -35,9 +35,9 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         value = systemPrompt, onValueChange = { systemPrompt = it },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentGreen, unfocusedBorderColor = BgBorder,
+                            focusedBorderColor = AccentCyan, unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                            cursorColor = AccentGreen, focusedContainerColor = BgElevated,
+                            cursorColor = AccentCyan, focusedContainerColor = BgElevated,
                     unfocusedContainerColor = BgElevated
                         ),
                         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
@@ -45,7 +45,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     )
                     Spacer(Modifier.height(6.dp))
                     Button(onClick = { vm.updateSystemPrompt(systemPrompt) },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = BgDeep),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
                         Text("Save", fontSize = 12.sp)
                     }
@@ -55,7 +55,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     Slider(value = temperature, onValueChange = { temperature = it },
                         valueRange = 0f..1f, steps = 19,
                         onValueChangeFinished = { vm.updateTemperature(temperature) },
-                        colors = SliderDefaults.colors(activeTrackColor = AccentGreen, thumbColor = AccentGreen)
+                        colors = SliderDefaults.colors(activeTrackColor = AccentCyan, thumbColor = AccentCyan)
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Precise", color = TextMuted, fontSize = 10.sp)
@@ -111,11 +111,11 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentGreen,
+                            focusedBorderColor = AccentCyan,
                             unfocusedBorderColor = BgBorder,
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
-                            cursorColor = AccentGreen,
+                            cursorColor = AccentCyan,
                             focusedContainerColor = BgElevated,
                             unfocusedContainerColor = BgElevated
                         ),
@@ -128,7 +128,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     Spacer(Modifier.height(6.dp))
                     Button(
                         onClick = { vm.updateHfToken(tokenInput) },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = BgDeep),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Lock, null, Modifier.size(14.dp))
@@ -138,9 +138,9 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     if (hfToken.isNotBlank()) {
                         Spacer(Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CheckCircle, null, Modifier.size(13.dp), tint = AccentGreen)
+                            Icon(Icons.Default.CheckCircle, null, Modifier.size(13.dp), tint = AccentCyan)
                             Spacer(Modifier.width(4.dp))
-                            Text("Token saved — downloads should work now", color = AccentGreen, fontSize = 11.sp)
+                            Text("Token saved — downloads should work now", color = AccentCyan, fontSize = 11.sp)
                         }
                     }
                 }
