@@ -297,10 +297,21 @@ Rules:
         history: List<Pair<String, String>>,
         current: String
     ): String {
-        val sb = StringBuilder()
-        history.forEach { (role, content) ->
-            sb.appendLine("[$role]: $content")
+        // Trim history to stay within ~3000 chars to avoid overflowing
+        // the 4096-token context window of Gemma 3 1B.
+        // Always keep the FIRST exchange (original task) + the most recent N pairs.
+        val MAX_HISTORY_CHARS = 3000
+        val trimmed = mutableListOf<Pair<String, String>>()
+        var chars = 0
+        // Walk backwards, keeping the most recent pairs first
+        for (pair in history.asReversed()) {
+            val pairLen = pair.first.length + pair.second.length
+            if (chars + pairLen > MAX_HISTORY_CHARS && trimmed.size >= 2) break
+            trimmed.add(0, pair)
+            chars += pairLen
         }
+        val sb = StringBuilder()
+        trimmed.forEach { (role, content) -> sb.appendLine("[$role]: $content") }
         sb.appendLine("[user]: $current")
         return sb.toString()
     }

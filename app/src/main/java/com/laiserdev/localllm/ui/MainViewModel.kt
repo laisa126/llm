@@ -208,8 +208,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Chat ─────────────────────────────────────────────────────────────────
 
+    // tracked so stopGeneration() can actually cancel the coroutine
+    private var generationJob: kotlinx.coroutines.Job? = null
+
     fun sendMessage(content: String, imageUri: Uri? = null) {
-        viewModelScope.launch {
+        generationJob = viewModelScope.launch {
             // Guard: no model loaded
             if (!app.llmRepository.isLoaded()) {
                 _messages.update {
@@ -234,26 +237,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val buffer = StringBuilder()
             val start = System.currentTimeMillis()
 
-            app.llmRepository.generateStream(content, sysPrompt).collect { token ->
-                buffer.append(token)
-                _messages.update { msgs ->
-                    msgs.dropLast(1) + assistantMsg.copy(content = buffer.toString(), isStreaming = true)
+            try {
+                app.llmRepository.generateStream(content, sysPrompt).collect { token ->
+                    buffer.append(token)
+                    _messages.update { msgs ->
+                        msgs.dropLast(1) + assistantMsg.copy(content = buffer.toString(), isStreaming = true)
+                    }
                 }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                // user tapped Stop — seal the message as-is
+            } finally {
+                val tps = if (buffer.isNotEmpty()) {
+                    buffer.length.toFloat() / ((System.currentTimeMillis() - start) / 1000f)
+                } else 0f
+                _messages.update { msgs ->
+                    msgs.dropLast(1) + assistantMsg.copy(
+                        content = buffer.toString().ifBlank { "⏹ Stopped." },
+                        isStreaming = false, tokensPerSecond = tps
+                    )
+                }
+                _isGenerating.value = false
+                if (buffer.isNotEmpty()) app.chatHistoryRepository.saveSession(_messages.value)
             }
-
-            val tps = buffer.length.toFloat() / ((System.currentTimeMillis() - start) / 1000f)
-            _messages.update { msgs ->
-                msgs.dropLast(1) + assistantMsg.copy(
-                    content = buffer.toString(), isStreaming = false, tokensPerSecond = tps
-                )
-            }
-            _isGenerating.value = false
-            // Persist after each completed exchange
-            app.chatHistoryRepository.saveSession(_messages.value)
         }
     }
 
-    fun stopGeneration() { _isGenerating.value = false }
+    fun stopGeneration() {
+        generationJob?.cancel()
+        generationJob = null
+        _isGenerating.value = false
+        _isAgentRunning.value = false
+        _agentThinking.value = null
+    }
     fun clearChat() { _messages.value = emptyList() }
     fun setSelectedImage(uri: Uri?) { _selectedImageUri.value = uri }
 
@@ -276,7 +291,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             return
         }
-        viewModelScope.launch {
+        generationJob = viewModelScope.launch {
             _isAgentRunning.value = true
             _agentSteps.value = emptyList()
             _agentThinking.value = "Analyzing task..."
@@ -307,68 +322,78 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var currentStepId: String? = null
             var stepStartMs = System.currentTimeMillis()
 
-            app.toolEngine.agentLoop(prompt, project.path, systemExtra = projectContext).collect { event ->
-                _agentEvents.emit(event)
-                when (event) {
-                    is AgentEvent.Thinking -> {
-                        _agentThinking.value = event.message
-                    }
-                    is AgentEvent.Token -> {
-                        _agentThinking.value = null
-                        buffer.append(event.text)
-                        _messages.update { msgs ->
-                            msgs.dropLast(1) + agentMsg.copy(content = buffer.toString(), isStreaming = true)
+            try {
+                app.toolEngine.agentLoop(prompt, project.path, systemExtra = projectContext).collect { event ->
+                    _agentEvents.emit(event)
+                    when (event) {
+                        is AgentEvent.Thinking -> {
+                            _agentThinking.value = event.message
                         }
-                    }
-                    is AgentEvent.ToolCalling -> {
-                        _agentThinking.value = null
-                        stepStartMs = System.currentTimeMillis()
-                        val step = AgentStep(
-                            toolName = event.name,
-                            args = event.args,
-                            status = StepStatus.RUNNING
-                        )
-                        currentStepId = step.id
-                        _agentSteps.update { it + step }
-                        addTerminalLine("🔧 ${event.name}(${event.args.take(60)})", TerminalLine.LineType.TOOL)
-                    }
-                    is AgentEvent.ToolResult -> {
-                        val duration = System.currentTimeMillis() - stepStartMs
-                        _agentSteps.update { steps ->
-                            steps.map { s ->
-                                if (s.id == currentStepId) s.copy(
-                                    output = event.output,
-                                    status = if (event.isError) StepStatus.ERROR else StepStatus.SUCCESS,
-                                    durationMs = duration
-                                ) else s
+                        is AgentEvent.Token -> {
+                            _agentThinking.value = null
+                            buffer.append(event.text)
+                            _messages.update { msgs ->
+                                msgs.dropLast(1) + agentMsg.copy(content = buffer.toString(), isStreaming = true)
                             }
                         }
-                        addTerminalLine(
-                            if (event.isError) "❌ ${event.output.take(120)}" else "✅ ${event.output.take(120)}",
-                            if (event.isError) TerminalLine.LineType.ERROR else TerminalLine.LineType.INFO
-                        )
-                        refreshFileTree()
-                    }
-                    is AgentEvent.FinalAnswer -> {
-                        _agentThinking.value = null
-                        _messages.update { msgs ->
-                            msgs.dropLast(1) + agentMsg.copy(content = event.text, isStreaming = false)
-                        }
-                    }
-                    is AgentEvent.Error -> {
-                        _agentThinking.value = null
-                        addTerminalLine("⚠ ${event.message}", TerminalLine.LineType.ERROR)
-                        _messages.update { msgs ->
-                            msgs.dropLast(1) + agentMsg.copy(
-                                content = buffer.toString().ifBlank { "⚠ ${event.message}" },
-                                isStreaming = false
+                        is AgentEvent.ToolCalling -> {
+                            _agentThinking.value = null
+                            stepStartMs = System.currentTimeMillis()
+                            val step = AgentStep(
+                                toolName = event.name,
+                                args = event.args,
+                                status = StepStatus.RUNNING
                             )
+                            currentStepId = step.id
+                            _agentSteps.update { it + step }
+                            addTerminalLine("🔧 ${event.name}(${event.args.take(60)})", TerminalLine.LineType.TOOL)
+                        }
+                        is AgentEvent.ToolResult -> {
+                            val duration = System.currentTimeMillis() - stepStartMs
+                            _agentSteps.update { steps ->
+                                steps.map { s ->
+                                    if (s.id == currentStepId) s.copy(
+                                        output = event.output,
+                                        status = if (event.isError) StepStatus.ERROR else StepStatus.SUCCESS,
+                                        durationMs = duration
+                                    ) else s
+                                }
+                            }
+                            addTerminalLine(
+                                if (event.isError) "❌ ${event.output.take(120)}" else "✅ ${event.output.take(120)}",
+                                if (event.isError) TerminalLine.LineType.ERROR else TerminalLine.LineType.INFO
+                            )
+                            refreshFileTree()
+                        }
+                        is AgentEvent.FinalAnswer -> {
+                            _agentThinking.value = null
+                            _messages.update { msgs ->
+                                msgs.dropLast(1) + agentMsg.copy(content = event.text, isStreaming = false)
+                            }
+                        }
+                        is AgentEvent.Error -> {
+                            _agentThinking.value = null
+                            addTerminalLine("⚠ ${event.message}", TerminalLine.LineType.ERROR)
+                            _messages.update { msgs ->
+                                msgs.dropLast(1) + agentMsg.copy(
+                                    content = buffer.toString().ifBlank { "⚠ ${event.message}" },
+                                    isStreaming = false
+                                )
+                            }
                         }
                     }
                 }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                _messages.update { msgs ->
+                    msgs.dropLast(1) + agentMsg.copy(
+                        content = buffer.toString().ifBlank { "⏹ Agent stopped." },
+                        isStreaming = false
+                    )
+                }
+            } finally {
+                _agentThinking.value = null
+                _isAgentRunning.value = false
             }
-            _agentThinking.value = null
-            _isAgentRunning.value = false
         }
     }
 
