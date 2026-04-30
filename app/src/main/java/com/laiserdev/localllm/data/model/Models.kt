@@ -81,11 +81,6 @@ data class ApiResponse(val id: String, val content: String, val model: String,
 @Serializable
 data class ApiError(val error: String, val code: Int = 400)
 
-@Serializable
-data class ApiKeyRecord(val id: String = "", val key: String = "", val name: String = "",
-    val email: String = "", val usageCount: Int = 0, val isActive: Boolean = true,
-    val createdAt: String = "")
-
 data class AppSettings(
     val serverPort: Int = 8080, val serverEnabled: Boolean = false,
     val activeModelId: String = "gemma3-1b", val maxTokens: Int = 2048,

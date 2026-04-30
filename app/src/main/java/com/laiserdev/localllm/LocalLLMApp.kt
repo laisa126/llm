@@ -4,7 +4,6 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
-import com.laiserdev.localllm.data.repository.ApiKeyRepository
 import com.laiserdev.localllm.data.repository.LLMRepository
 import com.laiserdev.localllm.data.repository.ProjectRepository
 import com.laiserdev.localllm.util.PackageManager
@@ -20,7 +19,6 @@ class LocalLLMApp : Application() {
     // Manual DI - singletons
     val llmRepository by lazy { LLMRepository(this) }
     val projectRepository by lazy { ProjectRepository(this) }
-    val apiKeyRepository by lazy { ApiKeyRepository() }
     val settingsManager by lazy { SettingsManager(this) }
     val terminalExecutor by lazy { TerminalExecutor(this) }
     val packageManager by lazy { PackageManager(this) }
