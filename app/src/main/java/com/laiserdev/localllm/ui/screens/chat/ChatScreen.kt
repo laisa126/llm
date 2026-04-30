@@ -513,19 +513,10 @@ fun MessageBubble(msg: ChatMessage) {
 @Composable
 fun AssistantContent(msg: ChatMessage) {
     val segments = remember(msg.content) { parseMessageSegments(msg.content) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         segments.forEach { seg ->
             when (seg) {
-                is MessageSegment.Text -> {
-                    if (seg.text.isNotBlank()) {
-                        Text(
-                            seg.text.trim(),
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            lineHeight = 23.sp
-                        )
-                    }
-                }
+                is MessageSegment.Text -> MarkdownText(seg.text)
                 is MessageSegment.Code -> CodeBlock(language = seg.language, code = seg.code)
             }
         }
@@ -533,6 +524,88 @@ fun AssistantContent(msg: ChatMessage) {
             Text("▋", color = AccentGreen, fontSize = 15.sp)
         }
     }
+}
+
+@Composable
+fun MarkdownText(raw: String) {
+    if (raw.isBlank()) return
+    val lines = raw.trimEnd().lines()
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        lines.forEach { line ->
+            when {
+                line.startsWith("# ")   -> Text(line.removePrefix("# ").inlineMarkdown(),
+                    color = TextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold, lineHeight = 26.sp)
+                line.startsWith("## ")  -> Text(line.removePrefix("## ").inlineMarkdown(),
+                    color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, lineHeight = 24.sp)
+                line.startsWith("### ") -> Text(line.removePrefix("### ").inlineMarkdown(),
+                    color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp)
+                line.startsWith("- ") || line.startsWith("* ") || line.startsWith("\u2022 ") -> Row(
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text("\u2022", color = AccentGreen, fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 3.dp, end = 8.dp))
+                    Text(line.drop(2).inlineMarkdown(), color = TextPrimary, fontSize = 15.sp, lineHeight = 22.sp)
+                }
+                line.matches(Regex("^\\d+\\. .*")) -> {
+                    val dot = line.indexOf(". ")
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(line.substring(0, dot + 1), color = AccentGreen, fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 3.dp, end = 8.dp))
+                        Text(line.substring(dot + 2).inlineMarkdown(), color = TextPrimary,
+                            fontSize = 15.sp, lineHeight = 22.sp)
+                    }
+                }
+                line.matches(Regex("^[-*_]{3,}$")) -> HorizontalDivider(
+                    color = BgBorder, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                line.startsWith("> ") -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(3.dp).height(20.dp)
+                        .background(AccentGreen.copy(0.5f), RoundedCornerShape(2.dp)))
+                    Spacer(Modifier.width(10.dp))
+                    Text(line.removePrefix("> ").inlineMarkdown(), color = TextSecond,
+                        fontSize = 14.sp, lineHeight = 21.sp)
+                }
+                line.isBlank() -> Spacer(Modifier.height(4.dp))
+                else -> Text(line.inlineMarkdown(), color = TextPrimary, fontSize = 15.sp, lineHeight = 23.sp)
+            }
+        }
+    }
+}
+
+fun String.inlineMarkdown(): androidx.compose.ui.text.AnnotatedString {
+    val builder = androidx.compose.ui.text.AnnotatedString.Builder()
+    var i = 0
+    while (i < length) {
+        when {
+            startsWith("**", i) -> {
+                val end = indexOf("**", i + 2)
+                if (end != -1) {
+                    builder.pushStyle(androidx.compose.ui.text.SpanStyle(
+                        fontWeight = FontWeight.Bold, color = TextPrimary))
+                    builder.append(substring(i + 2, end)); builder.pop(); i = end + 2
+                } else { builder.append(this[i]); i++ }
+            }
+            startsWith("*", i) && !startsWith("**", i) -> {
+                val end = indexOf("*", i + 1)
+                if (end != -1 && !startsWith("*", end + 1)) {
+                    builder.pushStyle(androidx.compose.ui.text.SpanStyle(
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = TextPrimary))
+                    builder.append(substring(i + 1, end)); builder.pop(); i = end + 1
+                } else { builder.append(this[i]); i++ }
+            }
+            startsWith("`", i) -> {
+                val end = indexOf("`", i + 1)
+                if (end != -1) {
+                    builder.pushStyle(androidx.compose.ui.text.SpanStyle(
+                        fontFamily = FontFamily.Monospace,
+                        background = Color(0xFF1A1F1A),
+                        color = Color(0xFF7EE787), fontSize = 13.sp))
+                    builder.append(substring(i + 1, end)); builder.pop(); i = end + 1
+                } else { builder.append(this[i]); i++ }
+            }
+            else -> { builder.append(this[i]); i++ }
+        }
+    }
+    return builder.toAnnotatedString()
 }
 
 @Composable

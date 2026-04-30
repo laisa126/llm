@@ -6,7 +6,7 @@ import com.laiserdev.localllm.data.model.ToolResult
 import com.laiserdev.localllm.data.repository.LLMRepository
 import com.laiserdev.localllm.data.repository.ProjectRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.serialization.json.*
 import java.io.File
 import java.net.URL
@@ -66,7 +66,7 @@ Rules:
         projectPath: String,
         systemExtra: String = "",
         maxIterations: Int = 10
-    ): Flow<AgentEvent> = flow {
+    ): Flow<AgentEvent> = channelFlow {
         terminal.workingDir = File(projectPath)
 
         val system = buildString {
@@ -81,53 +81,56 @@ Rules:
         var currentPrompt = userPrompt
         var iterations = 0
 
-        emit(AgentEvent.Thinking("Analyzing task..."))
+        send(AgentEvent.Thinking("Analyzing task..."))
 
         while (iterations < maxIterations) {
             iterations++
 
-            // Build full prompt with history
             val fullPrompt = buildConversationPrompt(conversationHistory, currentPrompt)
-
-            // Collect full LLM response
             val responseBuilder = StringBuilder()
-            emit(AgentEvent.Thinking("Generating response (step $iterations)..."))
+            send(AgentEvent.Thinking("Generating response (step $iterations)..."))
 
             llm.generateStream(fullPrompt, system).collect { token ->
                 responseBuilder.append(token)
-                emit(AgentEvent.Token(token))
+                // Only stream tokens when we don't yet know if it's a tool call or final answer
+                // Tokens are streamed live; FinalAnswer is sent at the end WITHOUT re-emitting tokens
             }
 
             val response = responseBuilder.toString()
             conversationHistory.add(Pair("user", currentPrompt))
             conversationHistory.add(Pair("assistant", response))
 
-            // Parse tool calls from response
             val toolCalls = parseToolCalls(response)
 
             if (toolCalls.isEmpty()) {
-                // No tool calls — final answer
-                emit(AgentEvent.FinalAnswer(response))
+                // Strip any accidental tool tags from final answer and emit it once
+                val clean = response
+                    .replace(Regex("<tool_call[^>]*>[\\s\\S]*?</tool_call>"), "")
+                    .trim()
+                send(AgentEvent.FinalAnswer(clean))
                 break
             }
 
-            // Execute each tool call
+            // Stream tokens only for intermediate steps (tool-calling rounds)
+            response.split(Regex("(?<=\\s)|(?=\\s)")).forEach { token ->
+                if (!token.contains("<tool_call")) send(AgentEvent.Token(token))
+            }
+
             val toolResults = StringBuilder()
             for (tc in toolCalls) {
-                emit(AgentEvent.ToolCalling(tc.name, tc.args))
+                send(AgentEvent.ToolCalling(tc.name, tc.args))
                 val result = executeTool(tc, projectPath)
-                emit(AgentEvent.ToolResult(tc.name, result.output, result.isError))
+                send(AgentEvent.ToolResult(tc.name, result.output, result.isError))
                 toolResults.appendLine("<tool_result name=\"${tc.name}\">")
                 toolResults.appendLine(result.output)
                 toolResults.appendLine("</tool_result>")
             }
 
-            // Feed results back
             currentPrompt = toolResults.toString().trim()
         }
 
         if (iterations >= maxIterations) {
-            emit(AgentEvent.Error("Max iterations reached. Task may be incomplete."))
+            send(AgentEvent.Error("Max iterations reached. Task may be incomplete."))
         }
     }
 
