@@ -87,5 +87,4 @@ data class AppSettings(
     val temperature: Float = 0.7f,
     val systemPrompt: String = "You are an expert software engineer AI assistant.",
     val theme: String = "dark", val fontSize: Int = 14,
-    val hfToken: String = ""
 )

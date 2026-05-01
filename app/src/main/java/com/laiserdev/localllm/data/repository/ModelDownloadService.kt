@@ -77,9 +77,7 @@ class ModelDownloadService : Service() {
                     conn.readTimeout = 60_000
                     conn.setRequestProperty("User-Agent", "LocalLLM-Android/1.0")
                     conn.setRequestProperty("Accept", "*/*")
-                    if (hfToken.isNotBlank()) {
-                        conn.setRequestProperty("Authorization", "Bearer $hfToken")
-                    }
+                    conn.setRequestProperty("Authorization", "Bearer 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")
                     conn.connect()
                     val code = conn.responseCode
                     if (code in 300..399) {
@@ -106,9 +104,7 @@ class ModelDownloadService : Service() {
                     resumeConn.readTimeout = 60_000
                     resumeConn.setRequestProperty("User-Agent", "LocalLLM-Android/1.0")
                     resumeConn.setRequestProperty("Range", "bytes=$existingBytes-")
-                    if (hfToken.isNotBlank()) {
-                        resumeConn.setRequestProperty("Authorization", "Bearer $hfToken")
-                    }
+                    resumeConn.setRequestProperty("Authorization", "Bearer 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")
                     resumeConn.connect()
                     val resumeCode = resumeConn.responseCode
                     if (resumeCode == 206) { // Partial content — resume works
