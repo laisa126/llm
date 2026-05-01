@@ -8,8 +8,13 @@ import com.laiserdev.localllm.data.repository.ProjectRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.serialization.json.*
+import android.os.Handler
+import android.os.Looper
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
 import java.net.URL
+import java.util.zip.ZipInputStream
 
 /**
  * ToolEngine lets the LLM call real tools:
@@ -48,8 +53,12 @@ Available tools (call them using <tool_call name="TOOL_NAME">JSON_ARGS</tool_cal
 11. install_package {"manager": "npm|pip|apt", "packages": ["pkg1","pkg2"]}
 12. search_web     {"query": "search query"}
 13. http_get       {"url": "https://..."}
-14. list_processes {"filter": "optional name filter"}
-15. kill_process   {"pid": 1234}
+14. list_processes  {"filter": "optional name filter"}
+15. kill_process    {"pid": 1234}
+16. download_zip    {"url": "https://...", "dest_dir": "relative or absolute path"}
+    Downloads a ZIP from a URL and extracts it to dest_dir. Handles redirects.
+17. screenshot      {"path": "optional output path (default: screenshots/capture.png)"}
+    Captures the current Preview tab WebView as a PNG. Use to visually verify your UI.
 
 Rules:
 - Always use tools to read files before editing them
@@ -278,6 +287,93 @@ Rules:
                     val output = StringBuilder()
                     terminal.execute("kill $pid").collect { (line, _) -> output.appendLine(line) }
                     ToolResult(output.toString().ifBlank { "✅ Killed PID $pid" })
+                }
+                "download_zip" -> {
+                    val url = args["url"]!!.jsonPrimitive.content
+                    val destDir = resolvePath(
+                        args["dest_dir"]?.jsonPrimitive?.content ?: "downloads",
+                        projectPath
+                    )
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        File(destDir).mkdirs()
+                        val conn = URL(url).openConnection() as HttpURLConnection
+                        conn.apply {
+                            instanceFollowRedirects = true
+                            connectTimeout = 15_000
+                            readTimeout = 60_000
+                            setRequestProperty("User-Agent", "LocalLLMAgent/1.0")
+                        }
+                        conn.connect()
+                        if (conn.responseCode !in 200..299) {
+                            return@withContext ToolResult(
+                                "❌ HTTP ${conn.responseCode} from $url", isError = true
+                            )
+                        }
+                        val totalBytes = conn.contentLengthLong
+                        var extracted = 0
+                        val extractedFiles = mutableListOf<String>()
+                        conn.inputStream.use { raw ->
+                            ZipInputStream(raw.buffered(65536)).use { zip ->
+                                var entry = zip.nextEntry
+                                while (entry != null) {
+                                    val outFile = File(destDir, entry.name)
+                                    if (entry.isDirectory) {
+                                        outFile.mkdirs()
+                                    } else {
+                                        outFile.parentFile?.mkdirs()
+                                        FileOutputStream(outFile).use { fos ->
+                                            zip.copyTo(fos)
+                                        }
+                                        extractedFiles.add(entry.name)
+                                        extracted++
+                                    }
+                                    zip.closeEntry()
+                                    entry = zip.nextEntry
+                                }
+                            }
+                        }
+                        ToolResult(buildString {
+                            appendLine("✅ Downloaded and extracted $extracted files to $destDir")
+                            if (extractedFiles.size <= 20) {
+                                appendLine("Files:")
+                                extractedFiles.forEach { appendLine("  • $it") }
+                            } else {
+                                appendLine("First 20 files:")
+                                extractedFiles.take(20).forEach { appendLine("  • $it") }
+                                appendLine("  ... and ${extractedFiles.size - 20} more")
+                            }
+                        })
+                    }
+                }
+                "screenshot" -> {
+                    val relPath = args["path"]?.jsonPrimitive?.content ?: "screenshots/capture.png"
+                    val outputPath = resolvePath(relPath, projectPath)
+                    // WebView.draw() must run on main thread
+                    var result: ToolResult? = null
+                    val latch = java.util.concurrent.CountDownLatch(1)
+                    Handler(Looper.getMainLooper()).post {
+                        result = try {
+                            val captureResult = com.laiserdev.localllm.util.WebViewRegistry
+                                .captureToFile(outputPath)
+                            if (captureResult.isSuccess) {
+                                ToolResult(
+                                    "✅ Screenshot saved to ${captureResult.getOrNull()}
+" +
+                                    "Use read_file to analyze it, or view it in the Editor."
+                                )
+                            } else {
+                                ToolResult(
+                                    "❌ Screenshot failed: ${captureResult.exceptionOrNull()?.message}",
+                                    isError = true
+                                )
+                            }
+                        } catch (e: Exception) {
+                            ToolResult("❌ Screenshot error: ${e.message}", isError = true)
+                        }
+                        latch.countDown()
+                    }
+                    latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
+                    result ?: ToolResult("❌ Screenshot timed out", isError = true)
                 }
                 else -> ToolResult("❌ Unknown tool: ${tc.name}", isError = true)
             }

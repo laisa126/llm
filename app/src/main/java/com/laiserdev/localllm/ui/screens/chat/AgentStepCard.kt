@@ -86,12 +86,12 @@ fun ThinkingIndicator(message: String) {
             Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(AccentGreen.copy(alpha = alpha))
+                .background(AccentCyan.copy(alpha = alpha))
         )
         Spacer(Modifier.width(10.dp))
         Text(
             message,
-            color = AccentGreen.copy(alpha = alpha + 0.1f),
+            color = AccentCyan.copy(alpha = alpha + 0.1f),
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace
         )
@@ -255,5 +255,7 @@ private fun toolMeta(name: String): Pair<String, Color> = when (name) {
     "http_get"        -> "🌐" to Color(0xFF58A6FF)
     "list_processes"  -> "📊" to Color(0xFFBC8CFF)
     "kill_process"    -> "🛑" to Color(0xFFF85149)
+    "download_zip"    -> "📥" to Color(0xFF00D4FF)
+    "screenshot"      -> "📸" to Color(0xFF9B6DFF)
     else              -> "🔧" to Color(0xFF8B949E)
 }

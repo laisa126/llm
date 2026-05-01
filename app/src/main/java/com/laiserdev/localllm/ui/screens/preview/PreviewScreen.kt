@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.laiserdev.localllm.ui.MainViewModel
+import com.laiserdev.localllm.util.WebViewRegistry
 import com.laiserdev.localllm.ui.theme.*
 import java.io.File
 
@@ -36,6 +37,7 @@ fun PreviewScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
 
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) { onDispose { WebViewRegistry.activeWebView = null } }
     var pageTitle by remember { mutableStateOf("") }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
@@ -171,6 +173,7 @@ fun PreviewScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                             allowUniversalAccessFromFileURLs = true
                         }
                         webViewRef = this
+                        WebViewRegistry.activeWebView = this
                     }
                 },
                 update = { webView ->
@@ -278,6 +281,7 @@ fun PreviewPanel(vm: MainViewModel, modifier: Modifier = Modifier) {
                             cacheMode = WebSettings.LOAD_NO_CACHE
                         }
                         webViewRef = this
+                        WebViewRegistry.activeWebView = this
                     }
                 },
                 update = { webView ->
