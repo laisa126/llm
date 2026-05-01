@@ -1,5 +1,6 @@
 -keep class com.laiserdev.localllm.** { *; }
--keep class com.google.mediapipe.** { *; }
+-keep class com.google.ai.edge.litertlm.** { *; }
+-keep class com.google.ai.edge.litert.** { *; }
 -keepattributes *Annotation*
 -dontwarn org.slf4j.**
 -dontwarn io.netty.**

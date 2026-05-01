@@ -21,7 +21,7 @@ import java.io.File
 object ModelBootstrap {
 
     const val BUNDLED_MODEL_ID   = "gemma3-1b"
-    const val BUNDLED_MODEL_FILE = "gemma3-1b-int4.task"
+    const val BUNDLED_MODEL_FILE = "gemma3-1b-q8.task"
     const val BUNDLED_ASSET_PATH = "models/$BUNDLED_MODEL_FILE"
 
     private val TAG = "ModelBootstrap"

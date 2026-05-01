@@ -103,7 +103,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           DEST="app/src/main/assets/models"
-          MODEL="gemma3-1b-int4.task"
+          MODEL="gemma3-1b-q8.task"
           mkdir -p "$DEST"
 
           echo "🔍 Looking up model-v1 release asset..."
@@ -120,7 +120,7 @@ jobs:
           echo $RELEASE_JSON | jq -r '.assets[] | "  \(.name) \(.size) bytes state=\(.state)"'
 
           # Get asset API URL for the .task file
-          ASSET_URL=$(echo $RELEASE_JSON | jq -r '.assets[] | select(.name == "gemma3-1b-int4.task") | .url')
+          ASSET_URL=$(echo $RELEASE_JSON | jq -r '.assets[] | select(.name == "gemma3-1b-q8.task") | .url')
           echo "Asset URL: $ASSET_URL"
 
           if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then

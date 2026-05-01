@@ -24,7 +24,7 @@ jobs:
 
       - name: Download Gemma 3 1B from HuggingFace
         run: |
-          MODEL="gemma3-1b-int4.task"
+          MODEL="gemma3-1b-q8.task"
           TOKEN="${{ github.event.inputs.hf_token }}"
 
           echo "Token prefix: ${TOKEN:0:8}..."
@@ -38,7 +38,7 @@ jobs:
             --retry 3 --retry-delay 10 \
             --max-time 3600 \
             --progress-bar \
-            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task")
+            "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task")
 
           echo "HTTP: $HTTP_CODE"
 
@@ -52,7 +52,7 @@ jobs:
               --retry 3 --retry-delay 10 \
               --max-time 3600 \
               --progress-bar \
-              "https://huggingface.co/google/gemma-3-1b-it/resolve/main/gemma3-1b-it-int4.task")
+              "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task")
             echo "HTTP: $HTTP_CODE"
           fi
 
@@ -81,7 +81,7 @@ jobs:
             - Model: Gemma 3 1B IT INT4
             - Format: MediaPipe LiteRT .task
             - Size: ~529MB
-          files: gemma3-1b-int4.task
+          files: gemma3-1b-q8.task
           make_latest: false
 
       - name: Verify upload succeeded
