@@ -238,7 +238,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val start = System.currentTimeMillis()
 
             try {
-                app.llmRepository.generateStream(content, sysPrompt).collect { token ->
+                app.llmRepository.generateStreamWithImage(content, sysPrompt, imageUri).collect { token ->
                     buffer.append(token)
                     _messages.update { msgs ->
                         msgs.dropLast(1) + assistantMsg.copy(content = buffer.toString(), isStreaming = true)
@@ -599,16 +599,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         updateModelStatus(model.id, ModelStatus.DOWNLOADING)
     }
 
+    // ─── supportsVision StateFlow (gates image attach button in ChatScreen) ───
+    private val _supportsVision = MutableStateFlow(false)
+    val supportsVision: StateFlow<Boolean> = _supportsVision.asStateFlow()
+
     fun loadModel(model: LLMModel) {
         viewModelScope.launch {
             _modelLoadingState.value = "Loading ${model.name}..."
             updateModelStatus(model.id, ModelStatus.LOADING)
-            app.llmRepository.loadModel(model.id, model.fileName).onSuccess {
+            app.llmRepository.loadModel(model.id, model.fileName, model.supportsVision).onSuccess {
                 updateModelStatus(model.id, ModelStatus.LOADED)
                 app.settingsManager.setActiveModel(model.id)
+                _supportsVision.value = model.supportsVision
                 _modelLoadingState.value = null
             }.onFailure { e ->
                 updateModelStatus(model.id, ModelStatus.ERROR, e.message)
+                _supportsVision.value = false
                 _modelLoadingState.value = null
             }
         }

@@ -46,6 +46,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val chatSessions   by vm.chatSessions.collectAsState()
     val settings       by vm.settings.collectAsState()
     val models         by vm.models.collectAsState()
+    val supportsVision by vm.supportsVision.collectAsState()
 
     val listState = rememberLazyListState()
     var inputText     by remember { mutableStateOf("") }
@@ -274,12 +275,14 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     .padding(horizontal = 4.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
-                // Attachment button
-                IconButton(
-                    onClick = { imagePickerLauncher.launch("image/*") },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(Icons.Default.AttachFile, null, Modifier.size(18.dp), tint = TextMuted)
+                // Attachment button — only for vision-capable models
+                if (supportsVision) {
+                    IconButton(
+                        onClick = { imagePickerLauncher.launch("image/*") },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(Icons.Default.AttachFile, null, Modifier.size(18.dp), tint = TextMuted)
+                    }
                 }
 
                 // Input field
