@@ -53,10 +53,29 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun LocalLLMTheme(content: @Composable () -> Unit) {
+fun LocalLLMTheme(
+    fontFamily: String = "sans",
+    fontSize: Int = 14,
+    content: @Composable () -> Unit
+) {
+    val ff = when (fontFamily) {
+        "serif" -> FontFamily.Serif
+        "mono"  -> FontFamily.Monospace
+        else    -> FontFamily.Default
+    }
+    val bodySize = fontSize.sp
+    val typography = Typography(
+        headlineLarge  = TextStyle(fontFamily = ff, fontWeight = FontWeight.Bold,   fontSize = 24.sp,       color = TextPrimary),
+        headlineMedium = TextStyle(fontFamily = ff, fontWeight = FontWeight.SemiBold, fontSize = 20.sp,     color = TextPrimary),
+        titleMedium    = TextStyle(fontFamily = ff, fontWeight = FontWeight.Medium, fontSize = 16.sp,       color = TextPrimary),
+        bodyLarge      = TextStyle(fontFamily = ff, fontWeight = FontWeight.Normal, fontSize = bodySize,    color = TextPrimary),
+        bodyMedium     = TextStyle(fontFamily = ff, fontWeight = FontWeight.Normal, fontSize = bodySize,    color = TextPrimary),
+        bodySmall      = TextStyle(fontFamily = ff, fontWeight = FontWeight.Normal, fontSize = (fontSize - 2).sp, color = TextSecond),
+        labelSmall     = TextStyle(fontFamily = MonoFont,                           fontSize = 11.sp,       color = TextMuted)
+    )
     MaterialTheme(
         colorScheme = DarkColors,
-        typography = AppTypography,
+        typography = typography,
         content = content
     )
 }

@@ -26,14 +26,14 @@ class PackageManager(private val context: Context) {
             "pkg"  -> "pkg install -y $pkgList" // Termux
             "yarn" -> "yarn add $pkgList"
             "npx"  -> "npx $pkgList"
-            else   -> return "❌ Unknown package manager: $manager. Use npm, pip, apt, or yarn."
+            else   -> return "[ERR] Unknown package manager: $manager. Use npm, pip, apt, or yarn."
         }
 
         if (projectPath.isNotBlank()) executor.workingDir = File(projectPath)
 
         val output = StringBuilder()
         executor.execute(command).collect { (line, isErr) ->
-            output.appendLine(if (isErr) "⚠ $line" else line)
+            output.appendLine(if (isErr) "[WARN] $line" else line)
         }
         return output.toString().trim()
     }

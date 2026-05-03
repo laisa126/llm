@@ -61,10 +61,10 @@ class LLMRepository(private val context: Context) {
 
                 engine = newEngine
                 currentModelId = modelId
-                Log.d(TAG, "✅ Model loaded: $fileName")
+                Log.d(TAG, "[OK] Model loaded: $fileName")
                 Result.success(Unit)
             } catch (e: Exception) {
-                Log.e(TAG, "❌ Load failed", e)
+                Log.e(TAG, "[ERR] Load failed", e)
                 closeInternal()
                 Result.failure(Exception("Failed to load model: ${e.message?.take(200) ?: "Unknown error"}"))
             }

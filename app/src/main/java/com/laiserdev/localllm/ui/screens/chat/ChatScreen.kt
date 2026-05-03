@@ -172,7 +172,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                 Spacer(Modifier.width(7.dp))
                 Text(
                     if (activeProject != null) "Agent mode · ${activeProject!!.name}"
-                    else "⚠ Open a project in Editor before using agent",
+                    else "[WARN] Open a project in Editor before using agent",
                     color = if (activeProject != null) AccentCyan else WarnYellow,
                     fontSize = 11.sp
                 )

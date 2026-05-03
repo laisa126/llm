@@ -69,7 +69,7 @@ object ModelBootstrap {
                 }
             }
             tmpFile.renameTo(destFile)
-            Log.d(TAG, "✅ Bundled model extracted: ${destFile.length() / 1_000_000}MB")
+            Log.d(TAG, "[OK] Bundled model extracted: ${destFile.length() / 1_000_000}MB")
         }
         send(1f)
     }

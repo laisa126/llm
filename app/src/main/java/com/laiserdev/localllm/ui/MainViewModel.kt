@@ -219,7 +219,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     it + ChatMessage(role = MessageRole.USER, content = content) +
                     ChatMessage(
                         role = MessageRole.ASSISTANT,
-                        content = "⚠️ No model loaded. Go to the **Models** tab, download a model, then tap **Load Model** before chatting."
+                        content = "[WARN]️ No model loaded. Go to the **Models** tab, download a model, then tap **Load Model** before chatting."
                     )
                 }
                 return@launch
@@ -279,7 +279,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _messages.update {
                 it + ChatMessage(role = MessageRole.USER, content = prompt) +
                 ChatMessage(role = MessageRole.ASSISTANT,
-                    content = "⚠️ No project open. Go to the **Editor** tab and open or create a project first.")
+                    content = "[WARN]️ No project open. Go to the **Editor** tab and open or create a project first.")
             }
             return
         }
@@ -287,7 +287,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _messages.update {
                 it + ChatMessage(role = MessageRole.USER, content = prompt) +
                 ChatMessage(role = MessageRole.ASSISTANT,
-                    content = "⚠️ No model loaded. Go to the **Models** tab, download and load a model first.")
+                    content = "[WARN]️ No model loaded. Go to the **Models** tab, download and load a model first.")
             }
             return
         }
@@ -346,7 +346,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             )
                             currentStepId = step.id
                             _agentSteps.update { it + step }
-                            addTerminalLine("🔧 ${event.name}(${event.args.take(60)})", TerminalLine.LineType.TOOL)
+                            addTerminalLine("[FIX] ${event.name}(${event.args.take(60)})", TerminalLine.LineType.TOOL)
                         }
                         is AgentEvent.ToolResult -> {
                             val duration = System.currentTimeMillis() - stepStartMs
@@ -360,7 +360,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
                             addTerminalLine(
-                                if (event.isError) "❌ ${event.output.take(120)}" else "✅ ${event.output.take(120)}",
+                                if (event.isError) "[ERR] ${event.output.take(120)}" else "[OK] ${event.output.take(120)}",
                                 if (event.isError) TerminalLine.LineType.ERROR else TerminalLine.LineType.INFO
                             )
                             refreshFileTree()
@@ -373,10 +373,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         is AgentEvent.Error -> {
                             _agentThinking.value = null
-                            addTerminalLine("⚠ ${event.message}", TerminalLine.LineType.ERROR)
+                            addTerminalLine("[WARN] ${event.message}", TerminalLine.LineType.ERROR)
                             _messages.update { msgs ->
                                 msgs.dropLast(1) + agentMsg.copy(
-                                    content = buffer.toString().ifBlank { "⚠ ${event.message}" },
+                                    content = buffer.toString().ifBlank { "[WARN] ${event.message}" },
                                     isStreaming = false
                                 )
                             }
@@ -408,7 +408,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun openProject(project: Project) {
         _activeProject.value = project
         app.terminalExecutor.workingDir = File(project.path)
-        addTerminalLine("📁 Opened project: ${project.name}", TerminalLine.LineType.INFO)
+        addTerminalLine("[DIR] Opened project: ${project.name}", TerminalLine.LineType.INFO)
         addTerminalLine("Path: ${project.path}", TerminalLine.LineType.INFO)
         refreshFileTree()
     }
@@ -425,14 +425,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun generateProjectFromPrompt(description: String) {
         viewModelScope.launch {
             _isGenerating.value = true
-            val assistantMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "🚀 Generating project...", isStreaming = true)
+            val assistantMsg = ChatMessage(role = MessageRole.ASSISTANT, content = "[START] Generating project...", isStreaming = true)
             _messages.update { it + ChatMessage(role = MessageRole.USER, content = description) + assistantMsg }
 
             app.llmRepository.generateProject(description).onSuccess { jsonResponse ->
                 app.projectRepository.createFromAIJson(jsonResponse).onSuccess { project ->
                     _messages.update { msgs ->
                         msgs.dropLast(1) + assistantMsg.copy(
-                            content = "✅ Project **${project.name}** created with ${File(project.path).walkTopDown().filter { it.isFile }.count()} files.",
+                            content = "[OK] Project **${project.name}** created with ${File(project.path).walkTopDown().filter { it.isFile }.count()} files.",
                             isStreaming = false
                         )
                     }
@@ -440,12 +440,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     openProject(project)
                 }.onFailure { e ->
                     _messages.update { msgs ->
-                        msgs.dropLast(1) + assistantMsg.copy(content = "❌ Error: ${e.message}", isStreaming = false)
+                        msgs.dropLast(1) + assistantMsg.copy(content = "[ERR] Error: ${e.message}", isStreaming = false)
                     }
                 }
             }.onFailure { e ->
                 _messages.update { msgs ->
-                    msgs.dropLast(1) + assistantMsg.copy(content = "❌ Error: ${e.message}", isStreaming = false)
+                    msgs.dropLast(1) + assistantMsg.copy(content = "[ERR] Error: ${e.message}", isStreaming = false)
                 }
             }
             _isGenerating.value = false
@@ -466,8 +466,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val project = _activeProject.value ?: return
         viewModelScope.launch {
             app.projectRepository.exportProjectAsZip(project.path).onSuccess { zipFile ->
-                addTerminalLine("✅ Exported: ${zipFile.absolutePath}", TerminalLine.LineType.INFO)
-            }.onFailure { addTerminalLine("❌ Export failed: ${it.message}", TerminalLine.LineType.ERROR) }
+                addTerminalLine("[OK] Exported: ${zipFile.absolutePath}", TerminalLine.LineType.INFO)
+            }.onFailure { addTerminalLine("[ERR] Export failed: ${it.message}", TerminalLine.LineType.ERROR) }
         }
     }
 
@@ -475,8 +475,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             app.projectRepository.importProjectFromZip(zipUri).onSuccess { project ->
                 loadProjects(); openProject(project)
-                addTerminalLine("✅ Imported project: ${project.name}", TerminalLine.LineType.INFO)
-            }.onFailure { addTerminalLine("❌ Import failed: ${it.message}", TerminalLine.LineType.ERROR) }
+                addTerminalLine("[OK] Imported project: ${project.name}", TerminalLine.LineType.INFO)
+            }.onFailure { addTerminalLine("[ERR] Import failed: ${it.message}", TerminalLine.LineType.ERROR) }
         }
     }
 
@@ -559,13 +559,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val project = _activeProject.value ?: return
         val cmd = app.packageManager.detectRunCommand(project.path)
         if (cmd != null) runCommand(cmd)
-        else addTerminalLine("⚠ Could not auto-detect run command for this project", TerminalLine.LineType.INFO)
+        else addTerminalLine("[WARN] Could not auto-detect run command for this project", TerminalLine.LineType.INFO)
     }
 
     fun installPackages(manager: String, packages: List<String>) {
         val project = _activeProject.value ?: return
         viewModelScope.launch {
-            addTerminalLine("📦 Installing: ${packages.joinToString(", ")} via $manager", TerminalLine.LineType.INFO)
+            addTerminalLine("[PKG] Installing: ${packages.joinToString(", ")} via $manager", TerminalLine.LineType.INFO)
             _isRunningCommand.value = true
             val result = app.packageManager.install(manager, packages, project.path)
             addTerminalLine(result, TerminalLine.LineType.OUTPUT)
@@ -692,6 +692,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun updateFontSize(size: Int) {
         viewModelScope.launch { app.settingsManager.setFontSize(size) }
+    }
+    fun updateFontFamily(family: String) {
+        viewModelScope.launch { app.settingsManager.setFontFamily(family) }
     }
 
     }

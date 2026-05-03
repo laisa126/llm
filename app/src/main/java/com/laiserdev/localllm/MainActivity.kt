@@ -38,9 +38,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         requestRuntimePermissions()
         setContent {
-            LocalLLMTheme {
+            val vm: MainViewModel = viewModel()
+            val settings by vm.settings.collectAsStateWithLifecycle(
+                com.laiserdev.localllm.data.model.AppSettings()
+            )
+            LocalLLMTheme(
+                fontFamily = settings.fontFamily,
+                fontSize = settings.fontSize
+            ) {
                 Surface(modifier = Modifier.fillMaxSize(), color = BgDeep) {
-                    val vm: MainViewModel = viewModel()
                     val bootstrapDone     by vm.bootstrapDone.collectAsStateWithLifecycle(false)
                     val bootstrapPhase    by vm.bootstrapPhase.collectAsStateWithLifecycle(BootstrapPhase.CHECKING)
                     val bootstrapProgress by vm.bootstrapProgress.collectAsStateWithLifecycle(0f)

@@ -64,7 +64,7 @@ fun TerminalScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                 Box(Modifier.size(10.dp).background(AccentGreen, RoundedCornerShape(5.dp)))
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    activeProject?.let { "📁 ${it.name}" } ?: "Terminal",
+                    activeProject?.let { "[DIR] ${it.name}" } ?: "Terminal",
                     color = TextSecond, fontSize = 12.sp, fontFamily = FontFamily.Monospace
                 )
             }
@@ -126,7 +126,7 @@ fun TerminalScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
             Modifier.fillMaxWidth().background(BgSurface).padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("❯", color = AccentGreen, fontSize = 14.sp, fontFamily = FontFamily.Monospace,
+            Text(">", color = AccentGreen, fontSize = 14.sp, fontFamily = FontFamily.Monospace,
                 modifier = Modifier.padding(end = 8.dp))
             BasicTextField(
                 value = input,
@@ -177,7 +177,7 @@ fun TerminalScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
 @Composable
 fun TerminalLineItem(line: TerminalLine) {
     val (color, prefix) = when (line.type) {
-        TerminalLine.LineType.COMMAND -> AccentGreen to "❯ "
+        TerminalLine.LineType.COMMAND -> AccentGreen to "> "
         TerminalLine.LineType.ERROR   -> ErrorRed to ""
         TerminalLine.LineType.INFO    -> AccentBlue to "ℹ "
         TerminalLine.LineType.TOOL    -> AccentPurple to ""
@@ -203,7 +203,7 @@ fun PackageInstallerPanel(onInstall: (String, List<String>) -> Unit) {
         Modifier.fillMaxWidth().background(BgSurface).border(BorderStroke(0.5.dp, BgBorder))
             .padding(12.dp)
     ) {
-        Text("📦 Install Packages", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Text("[PKG] Install Packages", color = AccentBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             managers.forEach { m ->

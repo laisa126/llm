@@ -34,7 +34,7 @@ val AVAILABLE_MODELS = listOf(
     // ── Gemma 3 ──────────────────────────────────────────────────────────────
     LLMModel(
         id = "gemma3-1b",
-        name = "Gemma 3 1B ⭐",
+        name = "Gemma 3 1B",
         description = "Ultra-fast. Best for 3GB RAM phones. Great for coding tasks.",
         sizeGb = 0.7f, minRamGb = 3,
         supportsVision = false, supportsCode = true,
@@ -65,7 +65,7 @@ val AVAILABLE_MODELS = listOf(
     // ── Gemma 4 (LiteRT-LM .litertlm) ────────────────────────────────────────
     LLMModel(
         id = "gemma4-e2b",
-        name = "Gemma 4 E2B 🔥",
+        name = "Gemma 4 E2B",
         description = "Gemma 4 · 2B effective params · multimodal · 32K context. Needs 4GB RAM.",
         sizeGb = 2.58f, minRamGb = 4,
         supportsVision = true, supportsCode = true,
@@ -74,7 +74,7 @@ val AVAILABLE_MODELS = listOf(
     ),
     LLMModel(
         id = "gemma4-e4b",
-        name = "Gemma 4 E4B 🔥",
+        name = "Gemma 4 E4B",
         description = "Gemma 4 · 4B effective params · best quality · 32K context. Needs 6GB RAM.",
         sizeGb = 3.65f, minRamGb = 6,
         supportsVision = true, supportsCode = true,
@@ -155,7 +155,7 @@ data class TerminalLine(
 @Serializable
 data class Skill(
     val id: String, val name: String, val description: String,
-    val icon: String = "⚡", val category: String = "code",
+    val icon: String = "◆", val category: String = "code",
     val systemPrompt: String, val userPromptTemplate: String,
     val isBuiltin: Boolean = false
 )
@@ -177,4 +177,5 @@ data class AppSettings(
     val temperature: Float = 0.7f,
     val systemPrompt: String = "You are an expert software engineer AI assistant.",
     val theme: String = "dark", val fontSize: Int = 14,
+    val fontFamily: String = "sans", // "sans" | "serif" | "mono"
 )

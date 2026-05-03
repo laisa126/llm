@@ -158,7 +158,7 @@ Rules:
                     val path = resolvePath(args["path"]!!.jsonPrimitive.content, projectPath)
                     val content = args["content"]!!.jsonPrimitive.content
                     File(path).also { it.parentFile?.mkdirs() }.writeText(content)
-                    ToolResult("✅ Written: $path (${content.length} chars)")
+                    ToolResult("[OK] Written: $path (${content.length} chars)")
                 }
                 "create_file" -> {
                     val path = resolvePath(args["path"]!!.jsonPrimitive.content, projectPath)
@@ -166,24 +166,24 @@ Rules:
                     val f = File(path)
                     f.parentFile?.mkdirs()
                     f.writeText(content)
-                    ToolResult("✅ Created: $path")
+                    ToolResult("[OK] Created: $path")
                 }
                 "delete_file" -> {
                     val path = resolvePath(args["path"]!!.jsonPrimitive.content, projectPath)
                     val f = File(path)
                     val deleted = if (f.isDirectory) f.deleteRecursively() else f.delete()
-                    ToolResult(if (deleted) "✅ Deleted: $path" else "❌ Could not delete: $path", !deleted)
+                    ToolResult(if (deleted) "[OK] Deleted: $path" else "[ERR] Could not delete: $path", !deleted)
                 }
                 "list_files" -> {
                     val path = resolvePath(args["path"]!!.jsonPrimitive.content, projectPath)
                     val recursive = args["recursive"]?.jsonPrimitive?.booleanOrNull ?: false
                     val files = if (recursive) {
                         File(path).walkTopDown().map {
-                            "${if (it.isDirectory) "📁" else "📄"} ${it.relativeTo(File(path))}"
+                            "${if (it.isDirectory) "[DIR]" else "[FILE]"} ${it.relativeTo(File(path))}"
                         }.joinToString("\n")
                     } else {
                         File(path).listFiles()?.joinToString("\n") {
-                            "${if (it.isDirectory) "📁" else "📄"} ${it.name}"
+                            "${if (it.isDirectory) "[DIR]" else "[FILE]"} ${it.name}"
                         } ?: "Empty directory"
                     }
                     ToolResult(files)
@@ -191,7 +191,7 @@ Rules:
                 "make_dir" -> {
                     val path = resolvePath(args["path"]!!.jsonPrimitive.content, projectPath)
                     File(path).mkdirs()
-                    ToolResult("✅ Directory created: $path")
+                    ToolResult("[OK] Directory created: $path")
                 }
                 "apply_diff" -> {
                     val path = resolvePath(args["path"]!!.jsonPrimitive.content, projectPath)
@@ -200,10 +200,10 @@ Rules:
                     val f = File(path)
                     val original = f.readText()
                     if (!original.contains(old)) {
-                        ToolResult("❌ Pattern not found in file", isError = true)
+                        ToolResult("[ERR] Pattern not found in file", isError = true)
                     } else {
                         f.writeText(original.replace(old, new))
-                        ToolResult("✅ Diff applied to $path")
+                        ToolResult("[OK] Diff applied to $path")
                     }
                 }
                 "grep_files" -> {
@@ -286,7 +286,7 @@ Rules:
                     val pid = args["pid"]!!.jsonPrimitive.int
                     val output = StringBuilder()
                     terminal.execute("kill $pid").collect { (line, _) -> output.appendLine(line) }
-                    ToolResult(output.toString().ifBlank { "✅ Killed PID $pid" })
+                    ToolResult(output.toString().ifBlank { "[OK] Killed PID $pid" })
                 }
                 "download_zip" -> {
                     val url = args["url"]!!.jsonPrimitive.content
@@ -306,7 +306,7 @@ Rules:
                         conn.connect()
                         if (conn.responseCode !in 200..299) {
                             return@withContext ToolResult(
-                                "❌ HTTP ${conn.responseCode} from $url", isError = true
+                                "[ERR] HTTP ${conn.responseCode} from $url", isError = true
                             )
                         }
                         val totalBytes = conn.contentLengthLong
@@ -333,7 +333,7 @@ Rules:
                             }
                         }
                         ToolResult(buildString {
-                            appendLine("✅ Downloaded and extracted $extracted files to $destDir")
+                            appendLine("[OK] Downloaded and extracted $extracted files to $destDir")
                             if (extractedFiles.size <= 20) {
                                 appendLine("Files:")
                                 extractedFiles.forEach { appendLine("  • $it") }
@@ -357,28 +357,28 @@ Rules:
                                 .captureToFile(outputPath)
                             if (captureResult.isSuccess) {
                                 ToolResult(
-                                    "✅ Screenshot saved to ${captureResult.getOrNull()}
+                                    "[OK] Screenshot saved to ${captureResult.getOrNull()}
 " +
                                     "Use read_file to analyze it, or view it in the Editor."
                                 )
                             } else {
                                 ToolResult(
-                                    "❌ Screenshot failed: ${captureResult.exceptionOrNull()?.message}",
+                                    "[ERR] Screenshot failed: ${captureResult.exceptionOrNull()?.message}",
                                     isError = true
                                 )
                             }
                         } catch (e: Exception) {
-                            ToolResult("❌ Screenshot error: ${e.message}", isError = true)
+                            ToolResult("[ERR] Screenshot error: ${e.message}", isError = true)
                         }
                         latch.countDown()
                     }
                     latch.await(5, java.util.concurrent.TimeUnit.SECONDS)
-                    result ?: ToolResult("❌ Screenshot timed out", isError = true)
+                    result ?: ToolResult("[ERR] Screenshot timed out", isError = true)
                 }
-                else -> ToolResult("❌ Unknown tool: ${tc.name}", isError = true)
+                else -> ToolResult("[ERR] Unknown tool: ${tc.name}", isError = true)
             }
         } catch (e: Exception) {
-            ToolResult("❌ Tool error: ${e.message}", isError = true)
+            ToolResult("[ERR] Tool error: ${e.message}", isError = true)
         }
     }
 

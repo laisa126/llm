@@ -30,7 +30,7 @@ class SkillsManager(private val context: Context) {
             id = "generate_project",
             name = "Generate Project",
             description = "Create a full project from a description",
-            icon = "🚀",
+            icon = "[START]",
             category = "code",
             systemPrompt = """You are an expert software architect. Generate complete, production-ready projects.
 Respond with ONLY a JSON object:
@@ -42,7 +42,7 @@ Include ALL necessary files. Make the code work out of the box.""",
             id = "fix_bug",
             name = "Fix Bug",
             description = "Analyze and fix code bugs",
-            icon = "🐛",
+            icon = "[BUG]",
             category = "debug",
             systemPrompt = """You are an expert debugger. Analyze code, identify bugs, and provide fixes.
 Format: 
@@ -55,7 +55,7 @@ Format:
             id = "explain_code",
             name = "Explain Code",
             description = "Explain what code does in plain English",
-            icon = "📖",
+            icon = "[READ]",
             category = "explain",
             systemPrompt = "You are a patient senior developer who explains code clearly to any skill level.",
             userPromptTemplate = "Explain this {{LANGUAGE}} code step by step:\n\n{{CODE}}"
@@ -64,7 +64,7 @@ Format:
             id = "refactor_code",
             name = "Refactor",
             description = "Improve code quality and structure",
-            icon = "♻️",
+            icon = "[RECYC]️",
             category = "refactor",
             systemPrompt = """Refactor the given code for: readability, performance, maintainability.
 Return the complete refactored file with comments explaining key changes.""",
@@ -74,7 +74,7 @@ Return the complete refactored file with comments explaining key changes.""",
             id = "write_tests",
             name = "Write Tests",
             description = "Generate unit and integration tests",
-            icon = "🧪",
+            icon = "[TEST]",
             category = "test",
             systemPrompt = "You write comprehensive tests. Cover happy path, edge cases, and error conditions.",
             userPromptTemplate = "Write {{TEST_FRAMEWORK}} tests for:\n\n{{CODE}}"
@@ -83,7 +83,7 @@ Return the complete refactored file with comments explaining key changes.""",
             id = "write_docs",
             name = "Write Docs",
             description = "Generate documentation and README",
-            icon = "📝",
+            icon = "[WRITE]",
             category = "docs",
             systemPrompt = "You write clear, complete technical documentation in Markdown.",
             userPromptTemplate = "Write {{DOC_TYPE}} documentation for:\n\n{{CODE}}"
@@ -92,7 +92,7 @@ Return the complete refactored file with comments explaining key changes.""",
             id = "shell_script",
             name = "Shell Script",
             description = "Generate bash/shell scripts",
-            icon = "⚡",
+            icon = "[FAST]",
             category = "shell",
             systemPrompt = "You write robust shell scripts with error handling, comments, and best practices.",
             userPromptTemplate = "Write a shell script that {{DESCRIPTION}}"
@@ -101,7 +101,7 @@ Return the complete refactored file with comments explaining key changes.""",
             id = "code_review",
             name = "Code Review",
             description = "Review code for issues and improvements",
-            icon = "🔍",
+            icon = "[FIND]",
             category = "code",
             systemPrompt = """Review code as a senior engineer. Check for:
 - Security vulnerabilities
@@ -109,14 +109,14 @@ Return the complete refactored file with comments explaining key changes.""",
 - Logic errors
 - Code style and maintainability
 - Missing error handling
-Rate severity: 🔴 Critical 🟡 Warning 🟢 Suggestion""",
+Rate severity: [ERR] Critical [WARN] Warning [ON] Suggestion""",
             userPromptTemplate = "Review this {{LANGUAGE}} code:\n\n{{CODE}}"
         ),
         Skill(
             id = "optimize_perf",
             name = "Optimize Performance",
             description = "Find and fix performance bottlenecks",
-            icon = "⚡",
+            icon = "[FAST]",
             category = "refactor",
             systemPrompt = "You are a performance engineer. Identify bottlenecks and provide optimized versions.",
             userPromptTemplate = "Optimize this {{LANGUAGE}} code for performance:\n\n{{CODE}}"
@@ -125,7 +125,7 @@ Rate severity: 🔴 Critical 🟡 Warning 🟢 Suggestion""",
             id = "convert_code",
             name = "Convert Language",
             description = "Translate code between languages",
-            icon = "🔄",
+            icon = "[SYNC]",
             category = "code",
             systemPrompt = "You are an expert in all programming languages. Translate code preserving logic and best practices of the target language.",
             userPromptTemplate = "Convert this {{FROM_LANGUAGE}} code to {{TO_LANGUAGE}}:\n\n{{CODE}}"
@@ -134,7 +134,7 @@ Rate severity: 🔴 Critical 🟡 Warning 🟢 Suggestion""",
             id = "api_integration",
             name = "API Integration",
             description = "Generate API client code",
-            icon = "🔌",
+            icon = "[PLUG]",
             category = "code",
             systemPrompt = "You generate complete API integration code with error handling, retry logic, and TypeScript types.",
             userPromptTemplate = "Generate {{LANGUAGE}} code to integrate with {{API_NAME}} API. Requirements: {{REQUIREMENTS}}"
@@ -143,7 +143,7 @@ Rate severity: 🔴 Critical 🟡 Warning 🟢 Suggestion""",
             id = "regex_builder",
             name = "Regex Builder",
             description = "Build and explain regular expressions",
-            icon = "🔤",
+            icon = "[STR]",
             category = "code",
             systemPrompt = "You are a regex expert. Build regexes and explain each part clearly.",
             userPromptTemplate = "Build a regex that matches: {{DESCRIPTION}}\nLanguage: {{LANGUAGE}}"
