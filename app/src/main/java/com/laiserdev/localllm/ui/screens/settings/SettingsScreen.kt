@@ -100,6 +100,62 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                 }
             }
 
+            // ── Vision section ────────────────────────────────────────────────
+            val supportsVision by vm.supportsVision.collectAsState()
+            SettingSection("Vision", Icons.Outlined.Visibility) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            if (supportsVision) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (supportsVision) AccentCyan else TextMuted
+                        )
+                        Text(
+                            if (supportsVision) "Image input enabled" else "Image input not available",
+                            color = if (supportsVision) TextPrimary else TextSecond,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .background(
+                                if (supportsVision) Color(0xFF0D2A1A) else Color(0xFF1A1A1A),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .border(
+                                0.5.dp,
+                                if (supportsVision) AccentCyan.copy(0.4f) else BgBorder,
+                                RoundedCornerShape(5.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            if (supportsVision) "SUPPORTED" else "NOT SUPPORTED",
+                            color = if (supportsVision) AccentCyan else TextMuted,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                if (!supportsVision) {
+                    Text(
+                        "Load a vision-capable model (e.g. Gemma 3n E2B, Gemma 4 E2B) from the Models tab to enable image input.",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+
             // ── Appearance section ────────────────────────────────────────────
             SettingSection("Appearance", Icons.Outlined.Palette) {
 

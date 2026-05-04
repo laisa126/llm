@@ -71,7 +71,30 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(BgDeep)) {
+    // Snackbar for one-shot warnings (e.g. vision-not-supported)
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        vm.snackbarEvent.collect { msg ->
+            snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
+        }
+    }
+
+    Scaffold(
+        containerColor = BgDeep,
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = Color(0xFF1E2A1E),
+                    contentColor = TextPrimary,
+                    actionColor = AccentCyan,
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+        }
+    ) { innerPadding ->
+
+    Column(Modifier.fillMaxSize().background(BgDeep).padding(innerPadding)) {
 
         // ── Claude-style top bar ───────────────────────────────────────────────
         Row(
@@ -409,6 +432,8 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
             onDismiss = { selectedSkill = null }
         )
     }
+    } // Column
+    } // Scaffold
 }
 
 // ── Claude-style message bubbles ──────────────────────────────────────────────

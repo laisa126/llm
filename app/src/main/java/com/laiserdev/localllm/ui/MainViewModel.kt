@@ -32,6 +32,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
+    // One-shot snackbar events (ChatScreen collects these)
+    private val _snackbarEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val snackbarEvent: SharedFlow<String> = _snackbarEvent.asSharedFlow()
+
     private val _selectedImageUri = MutableStateFlow<Uri?>(null)
     val selectedImageUri: StateFlow<Uri?> = _selectedImageUri.asStateFlow()
 
@@ -137,9 +141,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             // Load the bundled model automatically
             _bootstrapPhase.value = BootstrapPhase.LOADING
+            val bundledModelDef = com.laiserdev.localllm.data.model.AVAILABLE_MODELS
+                .firstOrNull { it.id == ModelBootstrap.BUNDLED_MODEL_ID }
+            val bundledSupportsVision = bundledModelDef?.supportsVision ?: false
             val result = app.llmRepository.loadModel(
                 ModelBootstrap.BUNDLED_MODEL_ID,
-                ModelBootstrap.BUNDLED_MODEL_FILE
+                ModelBootstrap.BUNDLED_MODEL_FILE,
+                bundledSupportsVision
             )
             if (result.isSuccess) {
                 // Mark it as loaded in model list
@@ -150,6 +158,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         else it
                     }
                 }
+                _supportsVision.value = bundledSupportsVision
                 app.settingsManager.setActiveModel(ModelBootstrap.BUNDLED_MODEL_ID)
             }
 
@@ -222,6 +231,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         content = "[WARN]️ No model loaded. Go to the **Models** tab, download a model, then tap **Load Model** before chatting."
                     )
                 }
+                return@launch
+            }
+
+            // Guard: image attached but loaded model doesn't support vision
+            if (imageUri != null && !_supportsVision.value) {
+                _snackbarEvent.tryEmit("⚠ This model doesn't support image input. Load a Vision model (e.g. Gemma 3n E2B) or remove the image.")
                 return@launch
             }
 
