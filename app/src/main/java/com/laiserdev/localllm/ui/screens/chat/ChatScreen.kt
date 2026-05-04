@@ -408,6 +408,8 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     }
 
     // ── Sheets ────────────────────────────────────────────────────────────────
+    } // Column
+
     if (showHistory) {
         ChatHistorySheet(
             sessions = chatSessions,
@@ -432,9 +434,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
             onDismiss = { selectedSkill = null }
         )
     }
-    } // Column
     } // Scaffold
-}
 
 // ── Claude-style message bubbles ──────────────────────────────────────────────
 

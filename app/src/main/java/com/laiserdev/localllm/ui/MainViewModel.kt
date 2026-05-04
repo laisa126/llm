@@ -717,6 +717,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateFontFamily(family: String) {
         viewModelScope.launch { app.settingsManager.setFontFamily(family) }
     }
-
-    }
 }
