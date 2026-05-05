@@ -34,7 +34,7 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     // Prevent Gradle from compressing the .task model file — it's already binary
     // and compression would make it unreadable directly from assets
-    androidResources { noCompress += listOf("task", "bin", "tflite") }
+    androidResources { noCompress += listOf("task", "bin", "tflite", "litertlm") }
     // Universal APK — no ABI/density splits so model asset stays intact
     splits {
         abi { isEnable = false }
@@ -45,6 +45,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    testOptions { unitTests { isReturnDefaultValues = true } }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -81,7 +82,7 @@ dependencies {
 
     // Unit tests (JVM only — no Android framework required)
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.9.23")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.0.0")
     val ktorVersion = "2.3.11"
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
