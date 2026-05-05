@@ -151,6 +151,12 @@ jobs:
             echo "⚠ Failed (HTTP $HTTP_CODE, $FILE_SIZE bytes) — building without model"
           fi
 
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version_name }}
+          BUILD_NUMBER: ${{ steps.version.outputs.version_code }}
+
       - name: Build APK
         run: ./gradlew assembleDebug --stacktrace --no-daemon
         env:

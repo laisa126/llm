@@ -1,0 +1,63 @@
+# Run this ONCE manually after cloning to seed the model-v1 release.
+# The build workflow will then pull gemma3-1b-q8.task from that release.
+#
+# Usage:
+#   1. Go to Actions → "Upload Bundled Model" → Run workflow
+#   2. Paste the HuggingFace download URL when prompted (or leave blank to
+#      use the default Gemma 3 1B URL from AVAILABLE_MODELS).
+#
+# The workflow downloads the model and uploads it as a GitHub Release asset
+# under the tag "model-v1".  Re-running the workflow will update the asset.
+
+name: Upload Bundled Model
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_url:
+        description: 'Model download URL (leave blank for default Gemma 3 1B)'
+        required: false
+        default: ''
+
+jobs:
+  upload:
+    name: Seed model-v1 release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve model URL
+        id: resolve
+        run: |
+          DEFAULT="https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task"
+          URL="${{ github.event.inputs.model_url }}"
+          if [ -z "$URL" ]; then URL="$DEFAULT"; fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Model URL: $URL"
+
+      - name: Download model (~700 MB — takes a few minutes)
+        run: |
+          mkdir -p /tmp/model
+          curl -L --retry 3 --retry-delay 5 --max-time 1800 --progress-bar \
+            -o /tmp/model/gemma3-1b-q8.task \
+            "${{ steps.resolve.outputs.url }}"
+          echo "Downloaded: $(du -sh /tmp/model/gemma3-1b-q8.task | cut -f1)"
+
+      - name: Create / update model-v1 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create the release if it doesn't exist yet
+          gh release create model-v1 \
+            --title "Bundled Model Assets" \
+            --notes "Internal release — contains model files bundled into the LocalLLM APK by CI." \
+            --prerelease 2>/dev/null || true
+
+          # Upload (or overwrite) the model asset
+          gh release upload model-v1 /tmp/model/gemma3-1b-q8.task \
+            --clobber
+
+          echo "✅ model-v1 release updated"

@@ -76,7 +76,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    implementation("com.google.ai.edge.litertlm:litertlm-android:latest.release")
+    // Pinned to latest stable (2026-04-13). Check: https://github.com/google-ai-edge/LiteRT-LM/releases
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.10.2")
+
+    // Unit tests (JVM only — no Android framework required)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.9.23")
     val ktorVersion = "2.3.11"
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
