@@ -250,7 +250,7 @@ fun PreviewPanel(vm: MainViewModel, modifier: Modifier = Modifier) {
                 Text("Live Preview", color = TextSecond, fontSize = 12.sp)
                 if (activeFilePath != null) {
                     Spacer(Modifier.width(6.dp))
-                    Text("• ${File(activeFilePath!!).name}", color = TextMuted, fontSize = 11.sp)
+                    Text("• ${File(activeFilePath).name}", color = TextMuted, fontSize = 11.sp)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

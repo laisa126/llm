@@ -146,7 +146,7 @@ class LLMServerService : Service() {
                         }
                     }
                 }
-                server!!.start(wait = true)
+                server?.start(wait = true)
             } catch (e: Exception) {
                 isRunning = false
             }

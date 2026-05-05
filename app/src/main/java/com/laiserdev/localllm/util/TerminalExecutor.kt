@@ -28,7 +28,7 @@ class TerminalExecutor(private val context: Context) {
             }
 
             process = pb.start()
-            val proc = process!!
+            val proc = process ?: return@launch
 
             // Stdout reader
             launch(Dispatchers.IO) {

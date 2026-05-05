@@ -100,7 +100,7 @@ fun EditorScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                 if (fileTree != null) {
                     val expandedPaths = remember { mutableSetOf<String>() }
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 8.dp)) {
-                        fileTree!!.children.forEach { child ->
+                        fileTree?.children?.forEach { child ->
                             fileTreeItem(child, 0, activeFilePath, vm, expandedPaths)
                         }
                     }
@@ -173,12 +173,12 @@ fun EditorScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(File(activeFilePath!!).name, color = TextSecond, fontSize = 11.sp,
+                    Text(activeFilePath?.let { File(it).name } ?: "", color = TextSecond, fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (isDirty) {
                             Button(
-                                onClick = { vm.saveFile(activeFilePath!!, codeText); isDirty = false },
+                                onClick = { activeFilePath?.let { vm.saveFile(it, codeText) }; isDirty = false },
                                 Modifier.height(26.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = BgDeep)

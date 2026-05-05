@@ -92,7 +92,7 @@ fun ModelsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
             ) {
                 CircularProgressIndicator(Modifier.size(16.dp), color = AccentCyan, strokeWidth = 2.dp)
                 Spacer(Modifier.width(10.dp))
-                Text(loadingState!!, color = AccentCyan, fontSize = 13.sp)
+                Text(loadingState ?: "", color = AccentCyan, fontSize = 13.sp)
             }
         }
 

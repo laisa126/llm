@@ -199,7 +199,7 @@ fun AppDrawer(
                             Icon(Icons.Default.FolderOpen, null,
                                 Modifier.size(13.dp), tint = AccentBlue)
                             Spacer(Modifier.width(6.dp))
-                            Text(activeProject!!.name, color = AccentBlue, fontSize = 11.sp,
+                            Text(activeProject?.name ?: "", color = AccentBlue, fontSize = 11.sp,
                                 modifier = Modifier.weight(1f))
                             Text("active", color = TextMuted, fontSize = 10.sp)
                         }
