@@ -38,6 +38,9 @@ class LLMServerService : Service() {
     companion object {
         var isRunning = false
         const val PORT = BuildConfig.API_PORT
+        /** Pass as Intent extra to expose the server on the LAN (0.0.0.0).
+         *  Default (false) = loopback only (127.0.0.1) — safe for production. */
+        const val EXTRA_LAN_MODE = "lan_mode"
     }
 
     override fun onCreate() {
@@ -49,8 +52,9 @@ class LLMServerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1001, buildNotification())
-        startServer()
+        val lanMode = intent?.getBooleanExtra(EXTRA_LAN_MODE, false) ?: false
+        startForeground(1001, buildNotification(lanMode))
+        startServer(lanMode)
         isRunning = true
         return START_STICKY
     }
@@ -61,10 +65,11 @@ class LLMServerService : Service() {
         super.onDestroy()
     }
 
-    private fun startServer() {
+    private fun startServer(lanMode: Boolean = false) {
+        val host = if (lanMode) "0.0.0.0" else "127.0.0.1"
         scope.launch {
             try {
-                server = embeddedServer(Netty, port = PORT) {
+                server = embeddedServer(Netty, port = PORT, host = host) {
                     install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
                     install(CORS) {
                         anyHost()
@@ -148,14 +153,17 @@ class LLMServerService : Service() {
         }
     }
 
-    private fun buildNotification() = NotificationCompat.Builder(this, LocalLLMApp.CHANNEL_SERVER)
-        .setContentTitle("LocalLLM API Running")
-        .setContentText("localhost:$PORT — no auth required")
-        .setSmallIcon(android.R.drawable.ic_menu_upload)
-        .setOngoing(true)
-        .setContentIntent(PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        ))
-        .build()
+    private fun buildNotification(lanMode: Boolean = false): android.app.Notification {
+        val address = if (lanMode) "0.0.0.0:$PORT (LAN)" else "localhost:$PORT"
+        return NotificationCompat.Builder(this, LocalLLMApp.CHANNEL_SERVER)
+            .setContentTitle("LocalLLM API Running")
+            .setContentText("$address — loopback${if (lanMode) " + LAN" else " only"}")
+            .setSmallIcon(android.R.drawable.ic_menu_upload)
+            .setOngoing(true)
+            .setContentIntent(PendingIntent.getActivity(
+                this, 0, Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE
+            ))
+            .build()
+    }
 }

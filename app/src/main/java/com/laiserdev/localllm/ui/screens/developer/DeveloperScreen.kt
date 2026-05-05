@@ -31,6 +31,7 @@ fun DeveloperScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
     val context = LocalContext.current
     val deviceIp = remember { getLocalIpAddress() }
     val port = BuildConfig.API_PORT
+    var lanMode by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(BgDeep).verticalScroll(rememberScrollState())) {
         com.laiserdev.localllm.ui.AppTopBar("Developer API", onOpenDrawer)
@@ -52,7 +53,7 @@ fun DeveloperScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         }
                         Switch(
                             checked = serverRunning,
-                            onCheckedChange = { vm.toggleServer(it) },
+                            onCheckedChange = { vm.toggleServer(it, lanMode) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = BgDeep, checkedTrackColor = AccentGreen
                             )
@@ -82,6 +83,38 @@ fun DeveloperScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                                 }
                             }
                         }
+                    }
+
+                    // ── LAN exposure toggle ────────────────────────────────────
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text("Expose on LAN", color = TextPrimary, fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium)
+                            Text(
+                                if (lanMode) "WiFi visible — any device on your network can connect"
+                                else "Loopback only (localhost) — safe default",
+                                color = if (lanMode) Color(0xFFFFB347) else TextMuted,
+                                fontSize = 11.sp, lineHeight = 15.sp
+                            )
+                        }
+                        Switch(
+                            checked = lanMode,
+                            onCheckedChange = { enabled ->
+                                lanMode = enabled
+                                if (serverRunning) {
+                                    vm.toggleServer(false)
+                                    vm.toggleServer(true, enabled)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BgDeep,
+                                checkedTrackColor = Color(0xFFFFB347)
+                            )
+                        )
                     }
                 }
             }

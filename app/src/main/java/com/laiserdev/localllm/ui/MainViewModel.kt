@@ -689,10 +689,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Server ───────────────────────────────────────────────────────────────
 
-    fun toggleServer(enable: Boolean) {
+    fun toggleServer(enable: Boolean, lanMode: Boolean = false) {
         val ctx = getApplication<Application>()
         if (enable) {
-            ctx.startForegroundService(Intent(ctx, LLMServerService::class.java))
+            val intent = Intent(ctx, LLMServerService::class.java)
+                .putExtra(LLMServerService.EXTRA_LAN_MODE, lanMode)
+            ctx.startForegroundService(intent)
         } else {
             ctx.stopService(Intent(ctx, LLMServerService::class.java))
         }

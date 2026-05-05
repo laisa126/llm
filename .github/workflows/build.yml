@@ -158,7 +158,14 @@ jobs:
           BUILD_NUMBER: ${{ steps.version.outputs.version_code }}
 
       - name: Build APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+        run: |
+          if [ "${{ steps.version.outputs.is_release }}" = "true" ]; then
+            echo "Tag build — assembling RELEASE variant (minified + signed)"
+            ./gradlew assembleRelease --stacktrace --no-daemon
+          else
+            echo "Branch build — assembling DEBUG variant"
+            ./gradlew assembleDebug --stacktrace --no-daemon
+          fi
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
