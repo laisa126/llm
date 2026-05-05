@@ -23,6 +23,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -69,6 +70,8 @@ class LLMServerService : Service() {
         val host = if (lanMode) "0.0.0.0" else "127.0.0.1"
         scope.launch {
             try {
+                val apiToken = (applicationContext as com.laiserdev.localllm.LocalLLMApp)
+                    .settingsManager.settings.first().apiToken
                 server = embeddedServer(Netty, port = PORT, host = host) {
                     install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
                     install(CORS) {
@@ -79,6 +82,7 @@ class LLMServerService : Service() {
                         allowMethod(HttpMethod.Options)
                     }
                     routing {
+                        // Health and root: always open (loopback-only by default anyway)
                         get("/") {
                             call.respond(mapOf(
                                 "service" to "LocalLLM API",
@@ -94,6 +98,7 @@ class LLMServerService : Service() {
                         }
                         route("/v1") {
                             post("/chat") {
+                                if (lanMode && !isAuthorized(call, apiToken)) return@post
                                 if (!llmRepo.isLoaded()) {
                                     call.respond(HttpStatusCode.ServiceUnavailable, ApiError("No model loaded", 503))
                                     return@post
@@ -116,6 +121,7 @@ class LLMServerService : Service() {
                                 )
                             }
                             post("/code") {
+                                if (lanMode && !isAuthorized(call, apiToken)) return@post
                                 if (!llmRepo.isLoaded()) {
                                     call.respond(HttpStatusCode.ServiceUnavailable, ApiError("No model loaded", 503))
                                     return@post
@@ -138,6 +144,7 @@ class LLMServerService : Service() {
                                 )
                             }
                             get("/models") {
+                                if (lanMode && !isAuthorized(call, apiToken)) return@get
                                 call.respond(mapOf(
                                     "loaded" to llmRepo.currentModel(),
                                     "capabilities" to listOf("chat", "code")
@@ -150,6 +157,18 @@ class LLMServerService : Service() {
             } catch (e: Exception) {
                 isRunning = false
             }
+        }
+    }
+
+    /** Returns true if request carries the correct Bearer token, otherwise responds 401 and returns false. */
+    private suspend fun isAuthorized(call: io.ktor.server.application.ApplicationCall, token: String): Boolean {
+        val bearer = call.request.headers[io.ktor.http.HttpHeaders.Authorization]
+            ?.removePrefix("Bearer ")?.trim()
+        return if (bearer == token) {
+            true
+        } else {
+            call.respond(HttpStatusCode.Unauthorized, ApiError("Invalid or missing Bearer token", 401))
+            false
         }
     }
 

@@ -13,6 +13,9 @@ import com.laiserdev.localllm.util.TerminalExecutor
 import com.laiserdev.localllm.util.ToolEngine
 
 import com.laiserdev.localllm.data.repository.ChatHistoryRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class LocalLLMApp : Application() {
 
@@ -36,6 +39,8 @@ class LocalLLMApp : Application() {
         super.onCreate()
         instance = this
         createNotificationChannels()
+        // Ensure a persistent API token exists for LAN auth
+        CoroutineScope(Dispatchers.IO).launch { settingsManager.ensureApiToken() }
     }
 
     private fun createNotificationChannels() {

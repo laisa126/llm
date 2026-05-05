@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.laiserdev.localllm.data.model.AppSettings
 import kotlinx.coroutines.flow.Flow
+import java.util.UUID
 import kotlinx.coroutines.flow.map
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "localllm_settings")
@@ -22,6 +23,7 @@ class SettingsManager(private val context: Context) {
         val SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         val THEME = stringPreferencesKey("theme")
         val HF_TOKEN = stringPreferencesKey("hf_token")
+        val API_TOKEN = stringPreferencesKey("api_token")
         val FONT_SIZE   = intPreferencesKey("font_size")
         val FONT_FAMILY = stringPreferencesKey("font_family")
     }
@@ -38,9 +40,24 @@ class SettingsManager(private val context: Context) {
             theme = prefs[Keys.THEME] ?: "dark",
             fontSize   = prefs[Keys.FONT_SIZE]   ?: 14,
             fontFamily = prefs[Keys.FONT_FAMILY] ?: "sans",
-            hfToken = prefs[Keys.HF_TOKEN] ?: ""
+            hfToken = prefs[Keys.HF_TOKEN] ?: "",
+            apiToken = prefs[Keys.API_TOKEN] ?: UUID.randomUUID().toString().also { token ->
+                // Auto-generate on first run; persisted on next setApiToken() call
+                // We cannot suspend here, so callers should invoke ensureApiToken() on init
+            }
         )
     }
+
+    /** Persist a new API token (call once at app startup if token is blank). */
+    suspend fun ensureApiToken() {
+        context.dataStore.edit { prefs ->
+            if (prefs[Keys.API_TOKEN].isNullOrBlank()) {
+                prefs[Keys.API_TOKEN] = UUID.randomUUID().toString()
+            }
+        }
+    }
+
+    suspend fun setApiToken(token: String) = update { it[Keys.API_TOKEN] = token.trim() }
 
     suspend fun update(block: suspend (MutablePreferences) -> Unit) {
         context.dataStore.edit(block)

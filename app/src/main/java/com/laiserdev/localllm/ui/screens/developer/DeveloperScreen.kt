@@ -119,17 +119,51 @@ fun DeveloperScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                 }
             }
 
-            // ── Info card ─────────────────────────────────────────────────────
+            // ── API Token card ────────────────────────────────────────────────
+            val apiToken = settings.apiToken
             Card(colors = CardDefaults.cardColors(containerColor = BgSurface),
-                border = BorderStroke(0.5.dp, BgBorder), shape = RoundedCornerShape(10.dp)) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, null, Modifier.size(16.dp), tint = AccentGreen)
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text("No authentication required", color = TextPrimary, fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium)
-                        Text("The API is local-only. Any app on this device can call it.",
-                            color = TextSecond, fontSize = 12.sp)
+                border = BorderStroke(0.5.dp, if (lanMode) Color(0xFFFFB347).copy(0.5f) else BgBorder),
+                shape = RoundedCornerShape(10.dp)) {
+                Column(Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Lock, null, Modifier.size(14.dp),
+                            tint = if (lanMode) Color(0xFFFFB347) else AccentGreen)
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (lanMode) "Bearer token required (LAN mode)" else "No auth — loopback only",
+                                color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                if (lanMode) "Add Authorization: Bearer <token> to all /v1 requests"
+                                else "Only this device can reach the API — no token needed",
+                                color = TextSecond, fontSize = 11.sp, lineHeight = 15.sp
+                            )
+                        }
+                    }
+                    if (apiToken.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(color = BgBorder, thickness = 0.5.dp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("API Token", color = TextMuted, fontSize = 10.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                apiToken,
+                                color = AccentCyan, fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = { copyToClipboard(context, apiToken) },
+                                Modifier.size(28.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, "Copy token",
+                                    Modifier.size(14.dp), tint = TextSecond)
+                            }
+                        }
                     }
                 }
             }
@@ -163,22 +197,41 @@ fun DeveloperScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
             // ── SDK example ────────────────────────────────────────────────────
             Text("Quick Start", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
 
-            CodeBlock("""// JavaScript / Node.js
+            CodeBlock("""// JavaScript / Node.js (loopback)
 const res = await fetch('http://localhost:8080/v1/chat', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ prompt: 'Hello!' })
 });
 const data = await res.json();
-console.log(data.content);""")
+console.log(data.content);
 
-            CodeBlock("""# Python
+// LAN mode — add Bearer token
+const TOKEN = 'your-api-token-here';
+const res2 = await fetch('http://192.168.x.x:8080/v1/chat', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${TOKEN}`
+  },
+  body: JSON.stringify({ prompt: 'Hello from LAN!' })
+});""")
+
+            CodeBlock("""# Python (loopback — no auth needed)
 import requests
 
 res = requests.post('http://localhost:8080/v1/chat',
   json={'prompt': 'Explain async/await'}
 )
-print(res.json()['content'])""")
+print(res.json()['content'])
+
+# LAN mode — pass Bearer token
+TOKEN = 'your-api-token-here'
+res2 = requests.post('http://192.168.x.x:8080/v1/chat',
+  headers={'Authorization': f'Bearer {TOKEN}'},
+  json={'prompt': 'Explain async/await'}
+)
+print(res2.json()['content'])""")
 
             Spacer(Modifier.height(24.dp))
         }

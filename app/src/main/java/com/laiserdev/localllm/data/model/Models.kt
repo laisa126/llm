@@ -178,4 +178,6 @@ data class AppSettings(
     val systemPrompt: String = "You are an expert software engineer AI assistant.",
     val theme: String = "dark", val fontSize: Int = 14,
     val fontFamily: String = "sans", // "sans" | "serif" | "mono"
+    val hfToken: String = "",
+    val apiToken: String = "",  // Bearer token for LAN API; empty = loopback only (no auth enforced)
 )
