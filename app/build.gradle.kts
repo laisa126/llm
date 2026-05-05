@@ -17,10 +17,10 @@ android {
     }
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "release.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: "localllm"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            storeFile = file("release.jks")
+            storePassword = "localllm123"
+            keyAlias = "localllm"
+            keyPassword = "localllm123"
         }
     }
     buildTypes {

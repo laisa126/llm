@@ -5,6 +5,7 @@
 .DS_Store
 /build/
 *.jks
+!app/release.jks
 *.keystore
 *.apk
 *.aab

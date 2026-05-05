@@ -78,25 +78,6 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Setup keystore
-        run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
-            echo "KEYSTORE_PATH=release.jks"                           >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}"  >> $GITHUB_ENV
-            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}"                  >> $GITHUB_ENV
-            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}"            >> $GITHUB_ENV
-          else
-            keytool -genkey -v -keystore app/debug.jks -alias localllm \
-              -keyalg RSA -keysize 2048 -validity 365 \
-              -dname "CN=LocalLLM,O=LaiserDev,C=KE" \
-              -storepass debugpass -keypass debugpass -noprompt
-            echo "KEYSTORE_PATH=debug.jks"   >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=debugpass" >> $GITHUB_ENV
-            echo "KEY_ALIAS=localllm"          >> $GITHUB_ENV
-            echo "KEY_PASSWORD=debugpass"      >> $GITHUB_ENV
-          fi
-
       - name: Download bundled model (Gemma 3 1B)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -158,17 +139,8 @@ jobs:
           BUILD_NUMBER: ${{ steps.version.outputs.version_code }}
 
       - name: Build APK
-        run: |
-          if [ "${{ steps.version.outputs.is_release }}" = "true" ]; then
-            echo "Tag build — assembling RELEASE variant (minified + signed)"
-            ./gradlew assembleRelease --stacktrace --no-daemon
-          else
-            echo "Branch build — assembling DEBUG variant"
-            ./gradlew assembleDebug --stacktrace --no-daemon
-          fi
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           RELEASE_VERSION: ${{ steps.version.outputs.version_name }}
           BUILD_NUMBER: ${{ steps.version.outputs.version_code }}
 
