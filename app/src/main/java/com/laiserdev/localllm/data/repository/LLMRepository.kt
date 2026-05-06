@@ -7,18 +7,16 @@ import android.net.Uri
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
-import com.google.ai.edge.litertlm.Contents
-import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -76,76 +74,39 @@ class LLMRepository(private val context: Context) {
     fun supportsVision() = currentSupportsVision
 
     // ── Conversation factory ───────────────────────────────────────────────────
-    // LiteRT-LM's system prompt is set in ConversationConfig.systemInstruction
-    // at conversation creation time — there is no addQueryChunk / isSystem API.
-    // We create a fresh Conversation per generation call so the system prompt
-    // can vary between chat messages (e.g. skill prompts vs default).
+    // Official API: ConversationConfig(systemMessage = Message.of("..."), samplerConfig = ...)
+    // A fresh Conversation is created per call so the system prompt can vary.
 
-    private fun createConversation(systemPrompt: String): Conversation {
-        val eng = engine ?: error("Engine not loaded")
-        val config = ConversationConfig(
-            samplerConfig = SamplerConfig(temperature = 0.7f, topK = 40),
-            systemInstruction = if (systemPrompt.isNotBlank())
-                Contents.of(systemPrompt) else null
-        )
-        return eng.createConversation(config)
-    }
+    private fun buildConversationConfig(systemPrompt: String) = ConversationConfig(
+        systemMessage = if (systemPrompt.isNotBlank()) Message.of(systemPrompt) else null,
+        samplerConfig = SamplerConfig(temperature = 0.7f, topK = 40)
+    )
 
     // ── Text-only streaming ────────────────────────────────────────────────────
     fun generateStream(prompt: String, systemPrompt: String = ""): Flow<String> =
         generateStreamWithImage(prompt, systemPrompt, null)
 
     // ── Vision-aware streaming ─────────────────────────────────────────────────
+    // Official API: sendMessageAsync(message: Message) returns Flow<Message>
+    // Each emitted Message may contain multiple Content parts — only Text parts carry text.
     fun generateStreamWithImage(
         prompt: String,
         systemPrompt: String = "",
         imageUri: Uri? = null
-    ): Flow<String> = callbackFlow {
-        val conv = createConversation(systemPrompt)
+    ): Flow<String> {
+        val eng = engine ?: error("Engine not loaded")
+        val conv = eng.createConversation(buildConversationConfig(systemPrompt))
 
-        // Build message — with or without image
-        val userMessage = if (imageUri != null && currentSupportsVision) {
-            try {
-                val bitmap = loadBitmapFromUri(imageUri)
-                if (bitmap != null) {
-                    val bytes = bitmapToJpegBytes(bitmap)
-                    Message.of(listOf(
-                        Content.ImageBytes(bytes, "image/jpeg"),
-                        Content.Text(prompt)
-                    ))
-                } else {
-                    Log.w(TAG, "Could not decode image URI, sending text only")
-                    Message.of(prompt)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Image load error: ${e.message}")
-                Message.of(prompt)
-            }
-        } else {
-            Message.of(prompt)
-        }
+        val userMessage = buildUserMessage(prompt, imageUri)
 
-        val callback = object : MessageCallback {
-            override fun onMessage(message: Message) {
-                // Content is a sealed class — only Content.Text carries text.
-                // Using toString() on the Message is the safe cross-version approach.
-                val text = message.content
+        return conv.sendMessageAsync(userMessage)
+            .map { message ->
+                message.content
                     .filterIsInstance<Content.Text>()
                     .joinToString("") { it.value }
-                if (text.isNotEmpty()) trySend(text)
             }
-            override fun onDone() {
-                try { conv.close() } catch (_: Exception) {}
-                close()
-            }
-            override fun onError(throwable: Throwable) {
-                try { conv.close() } catch (_: Exception) {}
-                close(throwable)
-            }
-        }
-
-        conv.sendMessageAsync(userMessage, callback)
-        awaitClose { try { conv.close() } catch (_: Exception) {} }
+            .onCompletion { conv.close() }
+            .catch { e -> throw e }
     }
 
     // ── Non-streaming generate ─────────────────────────────────────────────────
@@ -155,7 +116,8 @@ class LLMRepository(private val context: Context) {
         maxTokens: Int = 1024
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            createConversation(systemPrompt).use { conv ->
+            val eng = engine ?: return@withContext Result.failure(Exception("Engine not loaded"))
+            eng.createConversation(buildConversationConfig(systemPrompt)).use { conv ->
                 val response = conv.sendMessage(Message.of(prompt))
                 val text = response.content
                     .filterIsInstance<Content.Text>()
@@ -187,17 +149,35 @@ class LLMRepository(private val context: Context) {
             8192
         )
 
-    // ── Image helpers ──────────────────────────────────────────────────────────
+    // ── Message builder ────────────────────────────────────────────────────────
 
-    private fun loadBitmapFromUri(uri: Uri): Bitmap? {
+    private fun buildUserMessage(prompt: String, imageUri: Uri?): Message {
+        if (imageUri == null || !currentSupportsVision) return Message.of(prompt)
         return try {
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                BitmapFactory.decodeStream(stream)
+            val bitmap = loadBitmapFromUri(imageUri)
+            if (bitmap != null) {
+                val bytes = bitmapToJpegBytes(bitmap)
+                Message.of(listOf(
+                    Content.ImageBytes(bytes, "image/jpeg"),
+                    Content.Text(prompt)
+                ))
+            } else {
+                Log.w(TAG, "Could not decode image URI, falling back to text only")
+                Message.of(prompt)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Bitmap load error: ${e.message}")
-            null
+            Log.e(TAG, "Image load error: ${e.message}")
+            Message.of(prompt)
         }
+    }
+
+    // ── Image helpers ──────────────────────────────────────────────────────────
+
+    private fun loadBitmapFromUri(uri: Uri): Bitmap? = try {
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    } catch (e: Exception) {
+        Log.e(TAG, "Bitmap load error: ${e.message}")
+        null
     }
 
     private fun bitmapToJpegBytes(bitmap: Bitmap, maxEdge: Int = 1024): ByteArray {
@@ -210,9 +190,9 @@ class LLMRepository(private val context: Context) {
                 true
             )
         } else bitmap
-        val out = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
-        return out.toByteArray()
+        return ByteArrayOutputStream().also { out ->
+            scaled.compress(Bitmap.CompressFormat.JPEG, 85, out)
+        }.toByteArray()
     }
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
