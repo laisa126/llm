@@ -7,13 +7,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'debug'
-        type: choice
-        options: [ debug, release ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,11 +16,13 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version_name: ${{ steps.version.outputs.version_name }}
       version_code: ${{ steps.version.outputs.version_code }}
-      apk_name: ${{ steps.version.outputs.apk_name }}
-      is_release: ${{ steps.version.outputs.is_release }}
+      apk_name:     ${{ steps.version.outputs.apk_name }}
+      is_release:   ${{ steps.version.outputs.is_release }}
 
     steps:
       - name: Checkout
@@ -42,15 +37,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install build tools
-        run: sdkmanager "build-tools;35.0.0" "platforms;android-35"
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Extract version
         id: version
@@ -61,10 +48,10 @@ jobs:
             VER="$(date +'%Y.%m.%d')-dev"; IS_RELEASE=false
           fi
           CODE=$(git rev-list --count HEAD)
-          echo "version_name=$VER"   >> $GITHUB_OUTPUT
-          echo "version_code=$CODE"  >> $GITHUB_OUTPUT
-          echo "apk_name=LocalLLM-v$VER" >> $GITHUB_OUTPUT
-          echo "is_release=$IS_RELEASE"  >> $GITHUB_OUTPUT
+          echo "version_name=$VER"         >> $GITHUB_OUTPUT
+          echo "version_code=$CODE"        >> $GITHUB_OUTPUT
+          echo "apk_name=LocalLLM-v$VER"  >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE"   >> $GITHUB_OUTPUT
 
       - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
@@ -81,29 +68,24 @@ jobs:
           MODEL="gemma3-1b-q8.task"
           mkdir -p "$DEST"
 
-          echo "🔍 Looking up model-v1 release asset..."
-
-          # Fetch release JSON
+          echo "Checking model-v1 release asset..."
           RELEASE_JSON=$(curl -s \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/releases/tags/model-v1")
 
-          echo "Release name: $(echo $RELEASE_JSON | jq -r '.name // "not found"')"
-          echo "Draft: $(echo $RELEASE_JSON | jq -r '.draft')"
-          echo "Assets: $(echo $RELEASE_JSON | jq -r '.assets | length')"
+          echo "Release: $(echo $RELEASE_JSON | jq -r '.name // "not found"')"
+          echo "Assets:  $(echo $RELEASE_JSON | jq -r '.assets | length')"
           echo $RELEASE_JSON | jq -r '.assets[] | "  \(.name) \(.size) bytes state=\(.state)"'
 
-          # Get asset API URL for the .task file
           ASSET_URL=$(echo $RELEASE_JSON | jq -r '.assets[] | select(.name == "gemma3-1b-q8.task") | .url')
-          echo "Asset URL: $ASSET_URL"
 
           if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
-            echo "⚠ Asset not found — building without bundled model"
+            echo "Asset not found — building without bundled model"
             exit 0
           fi
 
-          echo "⬇ Downloading model..."
+          echo "Downloading model..."
           HTTP_CODE=$(curl -L \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/octet-stream" \
@@ -120,44 +102,49 @@ jobs:
 
           if [ "$HTTP_CODE" = "200" ] && [ "$FILE_SIZE" -gt 104857600 ]; then
             mv "$DEST/$MODEL.tmp" "$DEST/$MODEL"
-            echo "✅ Model bundled: $(du -sh $DEST/$MODEL | cut -f1)"
+            echo "Model bundled: $(du -sh $DEST/$MODEL | cut -f1)"
           else
             rm -f "$DEST/$MODEL.tmp"
-            echo "⚠ Failed (HTTP $HTTP_CODE, $FILE_SIZE bytes) — building without model"
+            echo "Failed (HTTP $HTTP_CODE, $FILE_SIZE bytes) — building without model"
           fi
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version_name }}
-          BUILD_NUMBER: ${{ steps.version.outputs.version_code }}
+          BUILD_NUMBER:    ${{ steps.version.outputs.version_code }}
 
-      - name: Build APK
+      - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace --no-daemon
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version_name }}
-          BUILD_NUMBER: ${{ steps.version.outputs.version_code }}
+          BUILD_NUMBER:    ${{ steps.version.outputs.version_code }}
 
-      - name: Locate & rename APK
+      - name: Locate, rename and validate APK
         run: |
           APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
+          if [ -z "$APK" ]; then
+            echo "No APK found"
+            exit 1
+          fi
           DEST="app/build/outputs/apk/${{ steps.version.outputs.apk_name }}.apk"
           cp "$APK" "$DEST"
           echo "APK=$DEST" >> $GITHUB_ENV
+
           SIZE=$(du -sh "$DEST" | cut -f1)
           BYTES=$(stat -c%s "$DEST")
           echo "APK size: $SIZE ($BYTES bytes)"
-          # Validate APK is a valid ZIP (APKs are ZIP files)
+
           if ! unzip -t "$DEST" > /dev/null 2>&1; then
-            echo "❌ APK ZIP validation failed — corrupt APK"
+            echo "APK ZIP validation failed — corrupt APK"
             exit 1
           fi
-          echo "✅ APK ZIP structure valid"
-          # Check if model is bundled inside
+          echo "APK structure valid"
+
           if unzip -l "$DEST" | grep -q "assets/models/gemma3"; then
-            echo "✅ Gemma 3 1B model confirmed inside APK"
+            echo "Gemma 3 1B confirmed inside APK"
           else
-            echo "⚠ Model not found inside APK — built without bundled model"
+            echo "Model not bundled — users will download on first launch"
           fi
 
       - name: Upload artifact
@@ -169,7 +156,7 @@ jobs:
           compression-level: 0
 
   release:
-    name: Create Release
+    name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
@@ -177,25 +164,27 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.build.outputs.apk_name }}
           path: ./artifacts
-      - name: Validate & prepare release APK
+
+      - name: Validate APK
         run: |
           APK=$(find ./artifacts -name "*.apk" | head -1)
           if [ -z "$APK" ]; then
-            echo "❌ No APK found in artifacts"
+            echo "No APK found in artifacts"
             exit 1
           fi
-          SIZE=$(du -sh "$APK" | cut -f1)
-          echo "APK: $APK ($SIZE)"
           if ! unzip -t "$APK" > /dev/null 2>&1; then
-            echo "❌ APK is corrupt — cannot release"
+            echo "APK is corrupt — cannot release"
             exit 1
           fi
-          echo "✅ APK valid — proceeding with release"
+          echo "APK valid — $(du -sh $APK | cut -f1)"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -203,13 +192,13 @@ jobs:
           files: ./artifacts/*.apk
           generate_release_notes: true
           body: |
-            ## 🤖 LocalLLM v${{ needs.build.outputs.version_name }}
-            Local AI coding assistant — Gemma 3 1B built-in, fully offline.
-
-            **This APK includes Gemma 3 1B (~700MB) — no downloads needed after install.**
+            ## LocalLLM v${{ needs.build.outputs.version_name }}
+            Local AI coding assistant — fully offline, no Play Store required.
 
             **Install:** Download APK → Settings → Unknown Sources → Install
-            **First launch:** Shows a one-time setup screen (~30s) then ready to use.
+            **First launch:** One-time setup screen (~30s) then ready to use.
+
+            If bundled with Gemma 3 1B (~700MB), no extra downloads needed after install.
 
             Features: Agent mode · Code editor · Terminal · HTML Preview · Local API
         env:

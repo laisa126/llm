@@ -1,13 +1,10 @@
-# Run this ONCE manually after cloning to seed the model-v1 release.
-# The build workflow will then pull gemma3-1b-q8.task from that release.
+# Run this ONCE manually to seed the model-v1 release asset.
+# The build workflow pulls gemma3-1b-q8.task from that release automatically.
 #
 # Usage:
 #   1. Go to Actions → "Upload Bundled Model" → Run workflow
-#   2. Paste the HuggingFace download URL when prompted (or leave blank to
-#      use the default Gemma 3 1B URL from AVAILABLE_MODELS).
-#
-# The workflow downloads the model and uploads it as a GitHub Release asset
-# under the tag "model-v1".  Re-running the workflow will update the asset.
+#   2. Optionally paste a custom model URL (leave blank for default Gemma 3 1B)
+#   3. If the model repo is gated, add HF_TOKEN to repo Secrets first
 
 name: Upload Bundled Model
 
@@ -38,26 +35,39 @@ jobs:
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "Model URL: $URL"
 
-      - name: Download model (~700 MB — takes a few minutes)
+      - name: Download model (~700MB)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           mkdir -p /tmp/model
+          AUTH_HEADER=""
+          if [ -n "$HF_TOKEN" ]; then
+            AUTH_HEADER="-H \"Authorization: Bearer $HF_TOKEN\""
+            echo "Using HF_TOKEN for authentication"
+          fi
           curl -L --retry 3 --retry-delay 5 --max-time 1800 --progress-bar \
+            ${HF_TOKEN:+-H "Authorization: Bearer $HF_TOKEN"} \
             -o /tmp/model/gemma3-1b-q8.task \
             "${{ steps.resolve.outputs.url }}"
-          echo "Downloaded: $(du -sh /tmp/model/gemma3-1b-q8.task | cut -f1)"
 
-      - name: Create / update model-v1 release
+          FILE_SIZE=$(stat -c%s /tmp/model/gemma3-1b-q8.task 2>/dev/null || echo "0")
+          echo "Downloaded: $(du -sh /tmp/model/gemma3-1b-q8.task | cut -f1) ($FILE_SIZE bytes)"
+
+          if [ "$FILE_SIZE" -lt 104857600 ]; then
+            echo "File too small — likely an error page, not the model"
+            head -c 500 /tmp/model/gemma3-1b-q8.task
+            exit 1
+          fi
+
+      - name: Create or update model-v1 release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create the release if it doesn't exist yet
           gh release create model-v1 \
             --title "Bundled Model Assets" \
-            --notes "Internal release — contains model files bundled into the LocalLLM APK by CI." \
+            --notes "Internal release — contains model files bundled into the LocalLLM APK by CI. Do not delete." \
             --prerelease 2>/dev/null || true
 
-          # Upload (or overwrite) the model asset
-          gh release upload model-v1 /tmp/model/gemma3-1b-q8.task \
-            --clobber
+          gh release upload model-v1 /tmp/model/gemma3-1b-q8.task --clobber
 
-          echo "✅ model-v1 release updated"
+          echo "model-v1 release updated"

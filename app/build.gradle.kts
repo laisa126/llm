@@ -18,9 +18,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("release.jks")
-            storePassword = "localllm123"
-            keyAlias = "localllm"
-            keyPassword = "localllm123"
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "localllm123"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "localllm"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "localllm123"
         }
     }
     buildTypes {
