@@ -7,6 +7,7 @@ import android.net.Uri
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
@@ -74,11 +75,11 @@ class LLMRepository(private val context: Context) {
     fun supportsVision() = currentSupportsVision
 
     // ── Conversation factory ───────────────────────────────────────────────────
-    // Official API: ConversationConfig(systemMessage = Message.of("..."), samplerConfig = ...)
+    // Official API: ConversationConfig(systemInstruction = Contents.of("..."), samplerConfig = ...)
     // A fresh Conversation is created per call so the system prompt can vary.
 
     private fun buildConversationConfig(systemPrompt: String) = ConversationConfig(
-        systemMessage = if (systemPrompt.isNotBlank()) Message.of(systemPrompt) else null,
+        systemInstruction = if (systemPrompt.isNotBlank()) Contents.of(systemPrompt) else null,
         samplerConfig = SamplerConfig(temperature = 0.7f, topK = 40)
     )
 
@@ -88,7 +89,7 @@ class LLMRepository(private val context: Context) {
 
     // ── Vision-aware streaming ─────────────────────────────────────────────────
     // Official API: sendMessageAsync(message: Message) returns Flow<Message>
-    // Each emitted Message may contain multiple Content parts — only Text parts carry text.
+    // Each emitted Message represents a streaming token chunk; Message.toString() yields the text.
     fun generateStreamWithImage(
         prompt: String,
         systemPrompt: String = "",
@@ -100,11 +101,7 @@ class LLMRepository(private val context: Context) {
         val userMessage = buildUserMessage(prompt, imageUri)
 
         return conv.sendMessageAsync(userMessage)
-            .map { message ->
-                message.content
-                    .filterIsInstance<Content.Text>()
-                    .joinToString("") { it.value }
-            }
+            .map { message -> message.toString() }
             .onCompletion { conv.close() }
             .catch { e -> throw e }
     }
@@ -119,10 +116,7 @@ class LLMRepository(private val context: Context) {
             val eng = engine ?: return@withContext Result.failure(Exception("Engine not loaded"))
             eng.createConversation(buildConversationConfig(systemPrompt)).use { conv ->
                 val response = conv.sendMessage(Message.of(prompt))
-                val text = response.content
-                    .filterIsInstance<Content.Text>()
-                    .joinToString("") { it.value }
-                Result.success(text)
+                Result.success(response.toString())
             }
         } catch (e: Exception) {
             Result.failure(e)
