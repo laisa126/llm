@@ -104,7 +104,7 @@ class ModelsTest {
         assertFalse(msg.id.isBlank())
         assertNull(msg.imageUri)
         assertFalse(msg.isStreaming)
-        assertEquals(0f, msg.tokensPerSecond)
+        assertEquals(0f, msg.tokensPerSecond, 0f)
         assertTrue(msg.toolCalls.isEmpty())
     }
 
