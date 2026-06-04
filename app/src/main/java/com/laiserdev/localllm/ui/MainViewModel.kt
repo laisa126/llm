@@ -310,6 +310,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isAgentRunning.value = true
             _agentSteps.value = emptyList()
             _agentThinking.value = "Analyzing task..."
+            _selectedImageUri.value = null   // clear any attached image when agent runs
 
             // Build rich project context for the agent system prompt
             val fileList = try {

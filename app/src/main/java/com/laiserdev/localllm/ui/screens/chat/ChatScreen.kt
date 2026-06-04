@@ -348,7 +348,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         .padding(end = 4.dp, bottom = 4.dp)
                         .size(34.dp)
                         .background(
-                            if (inputText.isNotBlank() && !busy) AccentCyan
+                            if ((inputText.isNotBlank() || selectedImage != null) && !busy) AccentCyan
                             else if (busy) Color(0xFF1A1A1A)
                             else Color(0xFF1A1A1A),
                             RoundedCornerShape(10.dp)
@@ -358,7 +358,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                             if (busy) AccentCyan.copy(0.3f) else Color.Transparent,
                             RoundedCornerShape(10.dp)
                         )
-                        .clickable(enabled = inputText.isNotBlank() || busy) {
+                        .clickable(enabled = inputText.isNotBlank() || selectedImage != null || busy) {
                             if (busy) {
                                 vm.stopGeneration()
                             } else {
@@ -376,7 +376,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit = {}) {
                         Icon(
                             Icons.Default.ArrowUpward, null,
                             Modifier.size(17.dp),
-                            tint = if (inputText.isNotBlank()) BgDeep else TextMuted
+                            tint = if (inputText.isNotBlank() || selectedImage != null) BgDeep else TextMuted
                         )
                     }
                 }
